@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>mysql-4.InnoDB架构简单分析 | 束河的博客</title><meta name="keywords" content="mysql"><meta name="author" content="束河"><meta name="copyright" content="束河"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="InnoDB主要包括了内存池、后台线程以及存储文件 后台线程InnoDB存储引擎是多线程的模型1.Master ThreadMaster Thread主要负责将缓存池中的数据异步刷新到磁盘，保证数据的一致性，包括脏页的刷新、合并插入缓冲（Insert Buffer）、undo页的回收等2.IO Thread在InnoDB中大量使用了AIO来处理写IO请求，而IO Thread的工作主要是负责这些I">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mysql-4.InnoDB架构简单分析">
+<meta property="og:url" content="http://example.com/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="束河的博客">
+<meta property="og:description" content="InnoDB主要包括了内存池、后台线程以及存储文件 后台线程InnoDB存储引擎是多线程的模型1.Master ThreadMaster Thread主要负责将缓存池中的数据异步刷新到磁盘，保证数据的一致性，包括脏页的刷新、合并插入缓冲（Insert Buffer）、undo页的回收等2.IO Thread在InnoDB中大量使用了AIO来处理写IO请求，而IO Thread的工作主要是负责这些I">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://up.enterdesk.com/edpic_source/19/3e/0c/193e0cdbf3e58a2e88d97f0237c8e2a6.jpg">
+<meta property="article:published_time" content="2019-10-15T11:35:01.000Z">
+<meta property="article:modified_time" content="2021-02-28T10:09:25.855Z">
+<meta property="article:author" content="束河">
+<meta property="article:tag" content="mysql">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://up.enterdesk.com/edpic_source/19/3e/0c/193e0cdbf3e58a2e88d97f0237c8e2a6.jpg"><link rel="shortcut icon" href="/img/favicon.ico"><link rel="canonical" href="http://example.com/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="/%E6%9D%9F%E6%B2%B3" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'mediumZoom',
+  Snackbar: undefined,
+  source: {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js',
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/js/jquery.justifiedGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/css/justifiedGallery.min.css'
+    },
+    fancybox: {
+      js: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2021-02-28 18:09:25'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    })(window)</script><link rel="stylesheet" href="/css/background.css"><meta name="generator" content="Hexo 5.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="author-avatar"><img class="avatar-img" src="/img/page.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url('https://up.enterdesk.com/edpic_source/19/3e/0c/193e0cdbf3e58a2e88d97f0237c8e2a6.jpg')"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">束河的博客</a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">mysql-4.InnoDB架构简单分析</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2019-10-15T11:35:01.000Z" title="发表于 2019-10-15 19:35:01">2019-10-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2021-02-28T10:09:25.855Z" title="更新于 2021-02-28 18:09:25">2021-02-28</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/">正经事</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p><img src="/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/1.png" alt="1"><br>InnoDB主要包括了内存池、后台线程以及存储文件</p>
+<h1 id="后台线程"><a href="#后台线程" class="headerlink" title="后台线程"></a>后台线程</h1><p>InnoDB存储引擎是多线程的模型<br>1.Master Thread<br>Master Thread主要负责将缓存池中的数据异步刷新到磁盘，保证数据的一致性，包括脏页的刷新、合并插入缓冲（Insert Buffer）、undo页的回收等<br>2.IO Thread<br>在InnoDB中大量使用了AIO来处理写IO请求，而IO Thread的工作主要是负责这些IO请求的回调处理。IO Thread分为write、read、insert buffer和log IO thread四种<br>3.Purge Thread<br>事务被提交后，其所使用的undo log可能不再需要，因此需要Purge Thread来回收已经使用并分配的undo页<br>4.Page Cleaner Thread<br>Page Cleaner Thread是一个用于协助Master Thread刷新脏页到磁盘的线程</p>
+<h1 id="内存"><a href="#内存" class="headerlink" title="内存"></a>内存</h1><h2 id="缓冲池（Buffer-Pool）"><a href="#缓冲池（Buffer-Pool）" class="headerlink" title="缓冲池（Buffer Pool）"></a>缓冲池（Buffer Pool）</h2><p>InnoDB存储引擎是基于磁盘存储的，而缓冲池是一块内存区域，通过内存的速度来弥补磁盘速度较慢对数据库性能的影响<br>在数据库中进行读取页的操作，首先将从磁盘读到的页存放在缓冲池中。下一次再读相同的页时，首先判断该页是否在缓冲池中。若在缓冲池中，称该页在缓冲池中被命中，直接读取该页。否则，读取磁盘上的页<br>对于数据库中页的修改操作，则首先修改在缓冲池中的页，然后再以一定的频率刷新到磁盘上。页从缓冲池刷新回磁盘的操作并不是在每次页发生更新时触发，而是通过一种称为Checkpoint的机制刷新回磁盘</p>
+<p><img src="/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/2.png" alt="3"><br>缓冲池中缓存的数据页类型有：索引页、数据页、undo页、插入缓冲（insert buffer）、自适应哈希索引、InnoDB存储的锁信息、数据字典信息等</p>
+<h2 id="LRU-List、Free-List和Flush-List"><a href="#LRU-List、Free-List和Flush-List" class="headerlink" title="LRU List、Free List和Flush List"></a>LRU List、Free List和Flush List</h2><h3 id="LRU-List"><a href="#LRU-List" class="headerlink" title="LRU List"></a>LRU List</h3><p>InnoDB缓冲池的内存管理使用最近最少使用（LRU）算法并在此基础上做了优化：<br><img src="/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/3.png" alt="3"><br>在InnoDB实现上，按照5：3的比例把整个LRU链表分成了young区域和old区域。图中LRU_old指向的就是old区域的第一个位置，是整个链表的5/8处。也就是说，靠近链表头部的5/8是young区域，靠近链表尾部的3/8是old区域<br>1.上图中状态1，要访问数据页P3，由于P3在young区域，因此和优化前的LRU算法一样，将其移到链表头部，变成状态2<br>2.之后要访问一个新的不存在于当前链表的Pm，但是新插入的数据页Px，是放在LRU_old处<br>3.处于old区域的数据页，每次被访问的时候都要做下面这个判断：</p>
+<p>若这个数据页在LRU链表中存在的时间超过了1秒，就把它移动到链表头部<br>如果这个数据页在LRU链表中存在的时间短于1秒，位置保持不变。1秒这个时间，是由参数innodb_old_blocks_time控制的。默认值是1000，单位是毫秒<br>这个优化策略就是为了处理类似全表扫描的操作量身定制的：</p>
+<p>1.扫描过程中，需要新插入的数据页，都被放到old区域<br>2.一个数据页里面有多条记录，这个数据页会被多次访问到，但由于是顺序扫描，这个数据页第一次被访问和最后一次被访问的时间间隔不会超过1秒，因此还是会被保留在old区域<br>3.再继续扫描后续的数据，之前的这个数据页之后也不会再被访问到，于是始终没有机会移到链表头部，很快就会被淘汰出去<br>这个优化策略最大的收益就是在扫描大表的过程中，虽然也用到了缓冲池，但是对young区域完全没有影响，从而保证了缓冲池响应正常业务的查询命中率</p>
+<h3 id="Free-List"><a href="#Free-List" class="headerlink" title="Free List"></a>Free List</h3><p>当需要从缓冲池中分页时，首先从Free列表中查找是否有可用的空闲页，若有则将该页从Free列表中删除，放入到LRU列表中。否则，根据LRU算法，淘汰LRU列表末尾的页，将该内存空间分配给新的页</p>
+<h3 id="Flush-List"><a href="#Flush-List" class="headerlink" title="Flush List"></a>Flush List</h3><p>在LRU列表中的页被修改后，称该页为脏页，即缓冲池中的页和磁盘上的页的数据产生了不一致。这时数据库会通过Checkpoint机制将脏页刷新回磁盘，而Flush列表中的页即为脏页列表</p>
+<h3 id="redo-log-buffer（重做日志缓冲）"><a href="#redo-log-buffer（重做日志缓冲）" class="headerlink" title=" redo log buffer（重做日志缓冲）"></a><code> redo log</code> buffer（重做日志缓冲）</h3><p>InnoDB首先将<code> redo log</code>放入到<code> redo log buffer</code>，然后按一定频率将其刷新到<code>redo log file</code></p>
+<p>下列三种情况下会将<code> redo log buffer</code>刷新到<code>redo log file</code>：</p>
+<p>Master Thread每一秒将<code> redo log buffer</code>刷新到<code>redo log file</code><br>每个事务提交时会将<code> redo log buffer</code>刷新到<code>redo log file</code><br>当<code> redo log</code>缓冲池剩余空间小于1/2时，会将<code> redo log</code> buffer刷新到<code>redo log file</code></p>
+<h2 id="额外的内存池"><a href="#额外的内存池" class="headerlink" title="额外的内存池"></a>额外的内存池</h2><p>在对一些数据结构本身的内存进行分配时，需要从额外的内存池中进行申请，当该区域的内存不够时，会从缓冲池中进行申请。例如，分配了缓冲池，但是每个缓冲池中的帧缓冲还有对应的缓冲控制对象，这些对象记录了一些诸如LRU、锁、等待等信息，而这个对象的内存需要从额外内存池中申请</p>
+<h2 id="插入缓冲"><a href="#插入缓冲" class="headerlink" title="插入缓冲"></a>插入缓冲</h2><p>InnoDB对DML操作（Insert、Delete、Update）都进行缓冲，分别是<strong>Insert Buffer、Delete Buffer、Purge Buffer</strong><br>将<code> Change Buffer</code>中的操作应用到原数据页，得到最新结果的过程称为merge。除了访问这个数据页会触发merge外，系统有后台线程会定期merge。在数据库正常关闭的过程中，也会执行merge操作<br><code> Change Buffer</code>是可以持久化的数据，在内存中有拷贝，也会被写入到磁盘上<br>主键和唯一索引无法使用<code> Change Buffer</code></p>
+<p><strong><code> redo log</code>主要节省的是随机写磁盘的IO消耗（转成顺序写），而<code> Change Buffer</code>主要节省的是随机读磁盘的IO消耗</strong></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">束河</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/">http://example.com/2019/10/15/mysql-4-InnoDB%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8D%95%E5%88%86%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="http://example.com" target="_blank">束河的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/mysql/">mysql</a></div><div class="post_share"><div class="social-share" data-image="https://up.enterdesk.com/edpic_source/19/3e/0c/193e0cdbf3e58a2e88d97f0237c8e2a6.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2019/10/24/mysql-5-%E9%94%81%E4%B8%8E%E4%BA%8B%E5%8A%A1/"><img class="prev-cover" src="https://up.enterdesk.com/edpic_source/af/2c/75/af2c756ec5370107839b27d349a59446.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">mysql-5.锁与事务</div></div></a></div><div class="next-post pull-right"><a href="/2019/08/12/mysql-3-%E4%BB%8E%E5%88%A0%E9%99%A4%E5%88%B0%E8%A1%A8%E6%96%87%E4%BB%B6/"><img class="next-cover" src="https://up.enterdesk.com/edpic_source/30/a5/d4/30a5d48231b6d1253494793bf8531acd.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">mysql-3.从删除到表文件</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span> 相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2020/02/15/测试标签/" title="测试标签"><img class="cover" src="https://up.enterdesk.com/edpic_source/e0/40/08/e04008d6d6e0875b62932310dbbc97fd.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2020-02-15</div><div class="title">测试标签</div></div></a></div><div><a href="/2019/08/12/mysql-3-从删除到表文件/" title="mysql-3.从删除到表文件"><img class="cover" src="https://up.enterdesk.com/edpic_source/30/a5/d4/30a5d48231b6d1253494793bf8531acd.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-08-12</div><div class="title">mysql-3.从删除到表文件</div></div></a></div><div><a href="/2019/11/21/mysql-6-count函数解析/" title="mysql-6.count函数解析"><img class="cover" src="https://up.enterdesk.com/edpic_source/1b/64/34/1b6434dbae047dfac1d2f8a00ce19dbd.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-11-21</div><div class="title">mysql-6.count函数解析</div></div></a></div><div><a href="/2019/07/27/mysql-1.索引相关/" title="mysql-1.索引相关"><img class="cover" src="https://up.enterdesk.com/edpic_source/e0/40/08/e04008d6d6e0875b62932310dbbc97fd.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-07-27</div><div class="title">mysql-1.索引相关</div></div></a></div><div><a href="/2019/08/03/mysql-2-从查询看架构-从更新看日志/" title="mysql-2.从查询看架构,从更新看日志"><img class="cover" src="https://up.enterdesk.com/edpic_source/ba/30/c8/ba30c820595d6ce4459ad99440d82577.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-08-03</div><div class="title">mysql-2.从查询看架构,从更新看日志</div></div></a></div><div><a href="/2019/10/24/mysql-5-锁与事务/" title="mysql-5.锁与事务"><img class="cover" src="https://up.enterdesk.com/edpic_source/af/2c/75/af2c756ec5370107839b27d349a59446.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-10-24</div><div class="title">mysql-5.锁与事务</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-info-avatar is-center"><img class="avatar-img" src="/img/page.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/><div class="author-info__name">束河</div><div class="author-info__description"></div></div><div class="card-info-data"><div class="card-info-data-item is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a></div><div class="card-info-data-item is-center"><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a></div><div class="card-info-data-item is-center"><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div></div><a class="button--animated" id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn card-announcement-animation"></i><span>公告</span></div><div class="announcement_content">欢迎来到束河的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%90%8E%E5%8F%B0%E7%BA%BF%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">后台线程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E5%AD%98"><span class="toc-number">2.</span> <span class="toc-text">内存</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%93%E5%86%B2%E6%B1%A0%EF%BC%88Buffer-Pool%EF%BC%89"><span class="toc-number">2.1.</span> <span class="toc-text">缓冲池（Buffer Pool）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LRU-List%E3%80%81Free-List%E5%92%8CFlush-List"><span class="toc-number">2.2.</span> <span class="toc-text">LRU List、Free List和Flush List</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#LRU-List"><span class="toc-number">2.2.1.</span> <span class="toc-text">LRU List</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Free-List"><span class="toc-number">2.2.2.</span> <span class="toc-text">Free List</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Flush-List"><span class="toc-number">2.2.3.</span> <span class="toc-text">Flush List</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#redo-log-buffer%EF%BC%88%E9%87%8D%E5%81%9A%E6%97%A5%E5%BF%97%E7%BC%93%E5%86%B2%EF%BC%89"><span class="toc-number">2.2.4.</span> <span class="toc-text"> redo log buffer（重做日志缓冲）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A2%9D%E5%A4%96%E7%9A%84%E5%86%85%E5%AD%98%E6%B1%A0"><span class="toc-number">2.3.</span> <span class="toc-text">额外的内存池</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E7%BC%93%E5%86%B2"><span class="toc-number">2.4.</span> <span class="toc-text">插入缓冲</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2020/10/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%BF%AB%E6%85%A2/" title="常见双指针-快慢"><img src="https://up.enterdesk.com/edpic_source/c5/f7/18/c5f718dfd577d46cf158afe3d4d45143.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="常见双指针-快慢"/></a><div class="content"><a class="title" href="/2020/10/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%BF%AB%E6%85%A2/" title="常见双指针-快慢">常见双指针-快慢</a><time datetime="2020-10-19T04:12:10.000Z" title="发表于 2020-10-19 12:12:10">2020-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/09/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%AF%B9%E6%92%9E/" title="常见双指针-对撞"><img src="https://up.enterdesk.com/edpic_source/c3/a7/5b/c3a75b3fc93a3f544d9027a90ddf5b69.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="常见双指针-对撞"/></a><div class="content"><a class="title" href="/2020/09/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%AF%B9%E6%92%9E/" title="常见双指针-对撞">常见双指针-对撞</a><time datetime="2020-09-19T03:09:52.000Z" title="发表于 2020-09-19 11:09:52">2020-09-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/06/18/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E4%BB%A3%E7%90%86/" title="设计模式-代理"><img src="https://up.enterdesk.com/edpic_source/86/97/46/86974689fda7ed0f79f1955f101c369e.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="设计模式-代理"/></a><div class="content"><a class="title" href="/2020/06/18/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E4%BB%A3%E7%90%86/" title="设计模式-代理">设计模式-代理</a><time datetime="2020-06-18T12:41:11.000Z" title="发表于 2020-06-18 20:41:11">2020-06-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/06/15/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%846-%E5%93%88%E5%B8%8C%E8%A1%A8/" title="数据结构6-哈希表"><img src="https://up.enterdesk.com/edpic_source/e0/40/08/e04008d6d6e0875b62932310dbbc97fd.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="数据结构6-哈希表"/></a><div class="content"><a class="title" href="/2020/06/15/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%846-%E5%93%88%E5%B8%8C%E8%A1%A8/" title="数据结构6-哈希表">数据结构6-哈希表</a><time datetime="2020-06-15T14:23:58.000Z" title="发表于 2020-06-15 22:23:58">2020-06-15</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/04/16/springboot%E5%B8%B8%E7%94%A8%E6%B3%A8%E8%A7%A3/" title="springboot常用注解"><img src="https://up.enterdesk.com/edpic_source/b5/04/8e/b5048ea27dfc0d8e5c0e9df0be7eb462.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="springboot常用注解"/></a><div class="content"><a class="title" href="/2020/04/16/springboot%E5%B8%B8%E7%94%A8%E6%B3%A8%E8%A7%A3/" title="springboot常用注解">springboot常用注解</a><time datetime="2020-04-16T08:00:54.000Z" title="发表于 2020-04-16 16:00:54">2020-04-16</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;undefined - 2021  <i id="heartbeat" class="fa fas fa-heartbeat"></i> 束河</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/HCLonely/images@master/others/heartbeat.min.css"></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom/dist/medium-zoom.min.js"></script><script>var preloader = {
+  endLoading: () => {
+    document.body.style.overflow = 'auto';
+    document.getElementById('loading-box').classList.add("loaded")
+  },
+  initLoading: () => {
+    document.body.style.overflow = '';
+    document.getElementById('loading-box').classList.remove("loaded")
+
+  }
+}
+window.addEventListener('load',preloader.endLoading())</script><div class="js-pjax"></div><script src="https://cdn.jsdelivr.net/gh/sviptzk/HexoStaticFile@latest/Hexo/js/hideCategory.min.js"></script><script defer="defer" id="fluttering_ribbon" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/canvas-fluttering-ribbon.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

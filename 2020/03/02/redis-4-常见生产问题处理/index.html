@@ -1,0 +1,220 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>redis-4.常见生产问题处理 | 束河的博客</title><meta name="keywords" content="redis"><meta name="author" content="束河"><meta name="copyright" content="束河"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="1.缓存和数据库双写一致性问题一致性问题是分布式常见问题，还可以再分为最终一致性和强一致性。数据库和缓存双写，就必然会存在不一致的问题。 首先要明白如果对数据有强一致性要求，就不能放缓存。只能说降低不一致发生的概率，无法完全避免。因此，有强一致性要求的数据，不能放缓存。  采取正确更新策略，先更新数据库，再删缓存。 其次，因为可能存在删除缓存失败的问题，提供一个补偿措施即可，例如利用消息队列。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis-4.常见生产问题处理">
+<meta property="og:url" content="http://example.com/2020/03/02/redis-4-%E5%B8%B8%E8%A7%81%E7%94%9F%E4%BA%A7%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86/index.html">
+<meta property="og:site_name" content="束河的博客">
+<meta property="og:description" content="1.缓存和数据库双写一致性问题一致性问题是分布式常见问题，还可以再分为最终一致性和强一致性。数据库和缓存双写，就必然会存在不一致的问题。 首先要明白如果对数据有强一致性要求，就不能放缓存。只能说降低不一致发生的概率，无法完全避免。因此，有强一致性要求的数据，不能放缓存。  采取正确更新策略，先更新数据库，再删缓存。 其次，因为可能存在删除缓存失败的问题，提供一个补偿措施即可，例如利用消息队列。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://up.enterdesk.com/edpic_source/c8/c7/3c/c8c73cec80473032e7f9955e3c78f7a3.jpg">
+<meta property="article:published_time" content="2020-03-02T14:36:23.000Z">
+<meta property="article:modified_time" content="2021-03-01T14:53:10.615Z">
+<meta property="article:author" content="束河">
+<meta property="article:tag" content="redis">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://up.enterdesk.com/edpic_source/c8/c7/3c/c8c73cec80473032e7f9955e3c78f7a3.jpg"><link rel="shortcut icon" href="/img/favicon.ico"><link rel="canonical" href="http://example.com/2020/03/02/redis-4-%E5%B8%B8%E8%A7%81%E7%94%9F%E4%BA%A7%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="/%E6%9D%9F%E6%B2%B3" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'mediumZoom',
+  Snackbar: undefined,
+  source: {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js',
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/js/jquery.justifiedGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/css/justifiedGallery.min.css'
+    },
+    fancybox: {
+      js: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2021-03-01 22:53:10'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(win=>{
+    win.saveToLocal = {
+      set: function setWithExpiry(key, value, ttl) {
+        if (ttl === 0) return
+        const now = new Date()
+        const expiryDay = ttl * 86400000
+        const item = {
+          value: value,
+          expiry: now.getTime() + expiryDay,
+        }
+        localStorage.setItem(key, JSON.stringify(item))
+      },
+
+      get: function getWithExpiry(key) {
+        const itemStr = localStorage.getItem(key)
+
+        if (!itemStr) {
+          return undefined
+        }
+        const item = JSON.parse(itemStr)
+        const now = new Date()
+
+        if (now.getTime() > item.expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return item.value
+      }
+    }
+  
+    win.getScript = url => new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = url
+      script.async = true
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function() {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    })
+  
+      win.activateDarkMode = function () {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      win.activateLightMode = function () {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+      const t = saveToLocal.get('theme')
+    
+          if (t === 'dark') activateDarkMode()
+          else if (t === 'light') activateLightMode()
+        
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    })(window)</script><link rel="stylesheet" href="/css/background.css"><meta name="generator" content="Hexo 5.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><div id="web_bg"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="author-avatar"><img class="avatar-img" src="/img/page.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url('https://up.enterdesk.com/edpic_source/c8/c7/3c/c8c73cec80473032e7f9955e3c78f7a3.jpg')"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">束河的博客</a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div></div><div id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></div></div></nav><div id="post-info"><h1 class="post-title">redis-4.常见生产问题处理</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2020-03-02T14:36:23.000Z" title="发表于 2020-03-02 22:36:23">2020-03-02</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2021-03-01T14:53:10.615Z" title="更新于 2021-03-01 22:53:10">2021-03-01</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/">正经事</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h2 id="1-缓存和数据库双写一致性问题"><a href="#1-缓存和数据库双写一致性问题" class="headerlink" title="1.缓存和数据库双写一致性问题"></a>1.缓存和数据库双写一致性问题</h2><p>一致性问题是分布式常见问题，还可以再分为<strong>最终一致性</strong>和<strong>强一致性</strong>。数据库和缓存双写，就必然会存在不一致的问题。</p>
+<p>首先要明白<strong>如果对数据有强一致性要求，就不能放缓存</strong>。<br>只能说降低不一致发生的概率，<strong>无法完全避免</strong>。因此，有强一致性要求的数据，不能放缓存。</p>
+<ul>
+<li><strong>采取正确更新策略，先更新数据库，再删缓存。</strong></li>
+<li>其次，因为可能存在删除缓存失败的问题，提供一个补偿措施即可，例如利用消息队列。</li>
+</ul>
+<h2 id="2-缓存穿透问题"><a href="#2-缓存穿透问题" class="headerlink" title="2.缓存穿透问题"></a>2.缓存穿透问题</h2><p><font color="#ff0000">缓存和数据库中都没有的数据</font>，而用户不断发起请求(也可能是故意攻击),导致数据库压力过大。</p>
+<ul>
+<li><strong>缓存空值</strong><br>如果一个查询返回的数据为空（不管是数据不存在，还是系统故障）我们仍然把这个空结果进行缓存，但它的过期时间会很短，最长不超过5分钟。通过这个设置的默认值存放到缓存，这样第二次到缓存中获取就有值了，而不会继续访问数据库</li>
+<li><strong>采用布隆过滤器BloomFilter</strong><br>将所有可能存在的数据哈希到一个足够大的bitmap中，一个一定不存在的数据会被这个bitmap拦截掉，从而避免了对底层存储系统的查询压力<br>在缓存之前在加一层BloomFilter，在查询的时候先去BloomFilter去查询key是否存在，如果不存在就直接返回，存在再去查询缓存，缓存中没有再去查询数据库<br>优势：占用内存空间很小，位存储；性能特别高，使用key的hash判断key存不存在</li>
+</ul>
+<h2 id="3-缓存击穿问题"><a href="#3-缓存击穿问题" class="headerlink" title="3.缓存击穿问题"></a>3.缓存击穿问题</h2><p><font color="#ff0000">缓存中没有但数据库中有的数据</font>（一般是缓存时间到期），并发用户特别多，同时读缓存没读到数据，又同时去数据库去取数据，引起数据库压力瞬间增大</p>
+<ul>
+<li>利用互斥锁:    缓存失效的时候，先去获得锁，得到锁了，再去请求数据库。没得到锁，则休眠一段时间重试,等第一个线程查询到了数据，然后做缓存。后面的线程进来发现已经有缓存了，就直接走缓存</li>
+<li>采用异步更新策略:    无论 Key 是否取到值，都直接返回。Value 值中维护一个缓存失效时间，缓存如果过期，异步起一个线程去读数据库，更新缓存。需要做缓存预热(项目启动前，先加载缓存)操作。</li>
+<li>设置热点数据永不过期</li>
+</ul>
+<h2 id="4-缓存雪崩问题"><a href="#4-缓存雪崩问题" class="headerlink" title="4.缓存雪崩问题"></a>4.缓存雪崩问题</h2><p><font color="#ff0000">缓存同一时间大面积的失效</font>，这个时候又来了一波请求，结果请求都怼到数据库上，从而导致数据库连接异常。(同时缓存击穿数量大)</p>
+<ul>
+<li>给缓存的失效时间，<strong>加上一个随机值</strong>，避免集体失效。</li>
+<li>使用<strong>互斥锁</strong>，但是该方案吞吐量明显下降了。</li>
+<li><strong>双缓存</strong>。我们有两个缓存，缓存 A 和缓存 B。缓存 A 的失效时间为 20 分钟，缓存 B 不设失效时间。自己做缓存预热操作。</li>
+<li><strong>服务降级</strong>。非核心数据先返回空如商品图片</li>
+<li>业务系统中实现<strong>服务熔断或请求限流</strong>机制:业务应用调用缓存接口时，缓存客户端并不把请求发给 Redis 缓存实例，而是直接返回，等到 Redis 缓存实例重新恢复服务后，再允许应用请求发送到缓存系统。或者前端控制每秒进入系统的请求数，避免过多的请求被发送到数据库(保护数据库防止宕机)</li>
+<li>搭建高可靠集群<br>然后细分以下几个小点：从缓存 A 读数据库，有则直接返回；A 没有数据，直接从 B 读数据，直接返回，并且异步启动一个更新线程，更新线程同时更新缓存 A 和缓存 B。</li>
+</ul>
+<h2 id="5-如何解决-Redis-的并发竞争-Key-问题"><a href="#5-如何解决-Redis-的并发竞争-Key-问题" class="headerlink" title="5.如何解决 Redis 的并发竞争 Key 问题"></a>5.如何解决 Redis 的并发竞争 Key 问题</h2><p>Redis为单进程单线程模式，采用队列模式将并发访问变为串行访问。<br>Redis本身没有锁的概念，Redis对于多个客户端连接并不存在竞争，但是在Jedis客户端对Redis进行并发访问时会发生连接超时、数据转换错误、阻塞、客户端关闭连接等问题，这些问题均是由于客户端连接混乱造成。</p>
+<p>可以利用 Redis 事务机制,但是不好,因为在生产环境，基本都是 Redis 集群环境，做了数据分片操作。<br>你一个事务中有涉及到多个 Key 操作的时候，这多个 Key 不一定都存储在同一个 redis-server 上。<br><strong>正确:</strong></p>
+<ul>
+<li>如果对这个 Key 操作，不要求顺序</li>
+</ul>
+<p><strong>利用setnx实现分布式锁</strong>，抢到锁就做 set 操作即可。</p>
+<ul>
+<li>如果对这个 Key 操作，要求顺序<br>假设有一个 key1，系统 A 需要将 key1 设置为 valueA，系统 B 需要将 key1 设置为 valueB，系统 C 需要将 key1 设置为 valueC。<br>期望按照 key1 的 value 值按照 valueA &gt; valueB &gt; valueC 的顺序变化。这种时候我们在数据写入数据库的时候，需要保存一个时间戳。<br>假设时间戳如下：系统A key 1 {valueA 3:00}    系统B key 1 {valueB 3:05}    系统C key 1 {valueC 3:10}<br>假设系统 B 先抢到锁，将 key1 设置为{valueB 3:05}。接下来 A 抢到锁，发现自己的 valueA 的时间戳早于缓存中的时间戳，那就不做 set 操作了，以此类推。</li>
+<li><strong>利用队列，将 set 方法变成串行访问</strong></li>
+<li><strong>客户端角度</strong>:证每个客户端间正常有序与Redis进行通信，对连接进行池化，同时对客户端读写Redis操作采用内部锁synchronized。</li>
+</ul>
+<h2 id="6-key是如何寻址的"><a href="#6-key是如何寻址的" class="headerlink" title="6.key是如何寻址的"></a>6.key是如何寻址的</h2><p><strong>背景:</strong><br>（1）redis 中的每一个数据库，都由一个 redisDb 的结构存储。其中：<br>redisDb.id 存储着 redis 数据库以整数表示的号码。<br>redisDb.dict 存储着该库所有的键值对数据。<br>redisDb.expires 保存着每一个键的过期时间。<br>（2）当 redis 服务器初始化时，会预先分配 16 个数据库（该数量可以通过配置文件配置），所有数据库保存到结构 redisServer 的一个成员 redisServer.db 数组中。当我们选择数据库 select number 时，程序直接通过 redisServer.db[number] 来切换数据库。有时候当程序需要知道自己是在哪个数据库时，直接读取 redisDb.id 即可。<br>（3）redis 的字典使用哈希表作为其底层实现。dict 类型使用的两个指向哈希表的指针，其中 0 号哈希表（ht[0]）主要用于存储数据库的所有键值，而 1 号哈希表主要用于程序对 0 号哈希表进行 rehash 时使用，rehash 一般是在添加新值时会触发，这里不做过多的赘述。所以 redis 中查找一个 key，其实就是对进行该 dict 结构中的 ht[0] 进行查找操作。<br>（4）既然是哈希，那么我们知道就会有哈希碰撞，那么当多个键哈希之后为同一个值怎么办呢？redis 采取链表的方式来存储多个哈希碰撞的键。也就是说，当根据 key 的哈希值找到该列表后，如果列表的长度大于 1，那么我们需要遍历该链表来找到我们所查找的 key。当然，一般情况下链表长度都为是 1，所以时间复杂度可看作 o(1)。</p>
+<p><strong>寻址 key 的步骤</strong><br>当拿到一个 key 后，redis 先判断当前库的 0 号哈希表是否为空，即：if (dict-&gt;ht[0].size == 0)。如果为 true 直接返回 NULL。<br>判断该 0 号哈希表是否需要 rehash，因为如果在进行 rehash，那么两个表中者有可能存储该 key。如果正在进行 rehash，将调用一次_dictRehashStep 方法，_dictRehashStep 用于对数据库字典、以及哈希键的字典进行被动 rehash，这里不作赘述。<br>计算哈希表，根据当前字典与 key 进行哈希值的计算。<br>根据哈希值与当前字典计算哈希表的索引值。<br>根据索引值在哈希表中取出链表，遍历该链表找到 key 的位置。一般情况，该链表长度为 1。<br>当 ht[0] 查找完了之后，再进行了次 rehash 判断，如果未在 rehashing，则直接结束，否则对 ht[1]重复 345 步骤。</p>
+<h2 id="7-Redis-的过期策略以及内存淘汰机制"><a href="#7-Redis-的过期策略以及内存淘汰机制" class="headerlink" title="7.Redis 的过期策略以及内存淘汰机制"></a>7.Redis 的过期策略以及内存淘汰机制</h2><p>比如你 Redis 只能存 5G 数据，可是你写了 10G，那会删 5G 的数据。怎么删的，这个问题思考过么？<br>还有，你的数据已经设置了过期时间，但是时间到了，内存占用率还是比较高，有思考过原因么?</p>
+<ul>
+<li><strong>Redis 采用的是定期删除+惰性删除策略。</strong></li>
+</ul>
+<h3 id="7-1为什么不用定时删除策略"><a href="#7-1为什么不用定时删除策略" class="headerlink" title="7.1为什么不用定时删除策略?"></a>7.1为什么不用定时删除策略?</h3><p>定时删除，用一个定时器来负责监视 Key，过期则自动删除。虽然内存及时释放，但是十分<br>在大并发请求下，CPU 要将时间应用在处理请求，而不是删除 Key，因此没有采用这一策略。<strong>消耗 CPU 资源。</strong></p>
+<h3 id="7-2定期删除-惰性删除是如何工作"><a href="#7-2定期删除-惰性删除是如何工作" class="headerlink" title="7.2定期删除+惰性删除是如何工作"></a>7.2定期删除+惰性删除是如何工作</h3><p><strong>定期删除</strong>:    Redis 默认每个 100ms 检查，是否有过期的 Key，有过期 Key 则删除。<br>需要说明的是，Redis 不是每个 100ms 将所有的 Key 检查一次，而是随机抽取进行检查(如果每隔 100ms，全部 Key 进行检查，Redis 岂不是卡死)。<br>因此，如果只采用定期删除策略，会导致很多 Key 到时间没有删除。于是，惰性删除派上用场。<br><strong>惰性删除</strong>:    也就是说在你获取某个 Key 的时候，Redis 会检查一下，这个 Key 如果设置了过期时间，过期了此时就会删除。</p>
+<h3 id="7-3采用定期删除-惰性删除就没其他问题了么"><a href="#7-3采用定期删除-惰性删除就没其他问题了么" class="headerlink" title="7.3采用定期删除+惰性删除就没其他问题了么?"></a>7.3采用定期删除+惰性删除就没其他问题了么?</h3><p>不是的，如果定期删除没删除 Key。然后你也没即时去请求 Key，也就是说惰性删除也没生效。这样，Redis的内存会越来越高。那么就应该采用<strong>内存淘汰机制</strong>。<br>在 redis.conf 中有一行配置：<br><code>maxmemory-policy volatile-lru</code></p>
+<p>该配置就是配内存淘汰策略的：</p>
+<h3 id="内存淘汰策略"><a href="#内存淘汰策略" class="headerlink" title="内存淘汰策略"></a>内存淘汰策略</h3><p>◆<code>noeviction</code>：当内存不足以容纳新写入数据时，新写入操作会报错。应该没人用吧。<br>◆<code>allkeys-lru</code>：当内存不足以容纳新写入数据时，在键空间中，移除最近最少使用的 Key。推荐使用，目前项目在用这种。<br>◆<code>allkeys-random</code>：当内存不足以容纳新写入数据时，在键空间中，随机移除某个 Key。应该也没人用吧，你不删最少使用 Key，去随机删。<br>◆<code>volatile-lru</code>：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，移除最近最少使用的 Key。这种情况一般是把 Redis 既当缓存，又做持久化存储的时候才用。不推荐。<br>◆<code>volatile-random</code>：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，随机移除某个 Key。依然不推荐。<br>◆<code>volatile-ttl</code>：当内存不足以容纳新写入数据时，在设置了过期时间的键空间中，有更早过期时间的 Key 优先移除。不推荐。<br>◆<code>volatile-lfu</code><br>PS：如果没有设置 expire 的 Key，不满足先决条件(prerequisites)；那么<code>volatile-lru，volatile-random</code>和 <code>volatile-ttl</code> 策略的行为，和 noeviction(不删除) 基本上一致。</p>
+<h2 id="8-缓存污染"><a href="#8-缓存污染" class="headerlink" title="8.缓存污染"></a>8.缓存污染</h2><p>缓存污染问题指的是留存在缓存中的数据，实际不会被再次访问了，但是又占据了缓存空间。如果这样的数据体量很大，甚至占满了缓存，每次有新数据写入缓存时，还需要把这些数据逐步淘汰出缓存，就会增加缓存操作的时间开销。<br>识别出这些只访问一次或是访问次数很少的数据，在淘汰数据时，优先把它们筛选出来并淘汰掉<br>LRU 策略时，由于 LRU 策略只考虑数据的访问时效，对于只访问一次的数据来说，LRU 策略无法很快将其筛选出来。<br>而 LFU 策略在 LRU 策略基础上进行了优化，在筛选数据时，首先会筛选并淘汰访问次数少的数据，然后针对访问次数相同的数据，再筛选并淘汰访问时间最久远的数据。<br>LRU 和 LFU 两个策略关注的数据访问特征各有侧重，LRU 策略更加关注数据的时效性，而 LFU 策略更加关注数据的访问频次。通常情况下，实际应用的负载具有较好的时间局部性，所以 LRU 策略的应用会更加广泛。但是，在扫描式查询的应用场景中，LFU 策略就可以很好地应对缓存污染问题了，建议你优先使用。</p>
+<ol start="9">
+<li><p>Redis如何做内存优化<br>尽可能使用散列表（hashes），散列表（是说散列表里面存储的数少）使用的内存非常小，所以你应该尽可能的将你的数据模型抽象到一个散列表里面。<br>比如你的web系统中有一个用户对象，不要为这个用户的名称，姓氏，邮箱，密码设置单独的key,而是应该把这个用户的所有信息存储到一张散列表里面。</p>
+</li>
+<li><p>Redis回收进程如何工作的<br>一个客户端运行了新的命令，添加了新的数据。<br>Redi检查内存使用情况，如果大于maxmemory的限制, 则根据设定好的策略进行回收。<br>一个新的命令被执行，等等。<br>所以我们不断地穿越内存限制的边界，通过不断达到边界然后不断地回收回到边界以下。<br>如果一个命令的结果导致大量内存被使用（例如很大的集合的交集保存到一个新的键），不用多久内存限制就会被这个内存使用量超越。</p>
+</li>
+<li><p>Redis集群方案应该怎么做？都有哪些方案？</p>
+</li>
+<li><p>codis。<br>目前用的最多的集群方案，基本和twemproxy一致的效果，但它支持在 节点数量改变情况下，旧节点数据可恢复到新hash节点。</p>
+</li>
+<li><p>redis cluster3.0自带的集群，特点在于他的分布式算法不是一致性hash，而是hash槽的概念，以及自身支持节点设置从节点。具体看官方文档介绍。</p>
+</li>
+<li><p>在业务代码层实现，起几个毫无关联的redis实例，在代码层，对key 进行hash计算，然后去对应的redis实例操作数据。 这种方式对hash层代码要求比较高，考虑部分包括，节点失效后的替代算法方案，数据震荡后的自动脚本恢复，实例的监控，等等。</p>
+</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">束河</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="http://example.com/2020/03/02/redis-4-%E5%B8%B8%E8%A7%81%E7%94%9F%E4%BA%A7%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86/">http://example.com/2020/03/02/redis-4-%E5%B8%B8%E8%A7%81%E7%94%9F%E4%BA%A7%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="http://example.com" target="_blank">束河的博客</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/redis/">redis</a></div><div class="post_share"><div class="social-share" data-image="https://up.enterdesk.com/edpic_source/c8/c7/3c/c8c73cec80473032e7f9955e3c78f7a3.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2020/03/17/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%8D%95%E4%BE%8B/"><img class="prev-cover" src="https://up.enterdesk.com/edpic_source/19/3e/0c/193e0cdbf3e58a2e88d97f0237c8e2a6.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">设计模式-单例</div></div></a></div><div class="next-post pull-right"><a href="/2020/02/15/%E6%91%A9%E5%B0%94%E6%8A%95%E7%A5%A8/"><img class="next-cover" src="https://up.enterdesk.com/edpic_source/c2/1d/c8/c21dc8cb21b0ee4d5c69de70abfe0353.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">摩尔投票法</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span> 相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2020/02/15/测试标签/" title="测试标签"><img class="cover" src="https://up.enterdesk.com/edpic_source/e0/40/08/e04008d6d6e0875b62932310dbbc97fd.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2020-02-15</div><div class="title">测试标签</div></div></a></div><div><a href="/2019/11/01/redis-1-简介-场景-数据类型-数据结构/" title="redis-1.简介,场景,数据类型,数据结构"><img class="cover" src="https://up.enterdesk.com/edpic_source/29/4f/92/294f927230f72bb280358b6280dad93e.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-11-01</div><div class="title">redis-1.简介,场景,数据类型,数据结构</div></div></a></div><div><a href="/2019/12/01/redis-2-事务-分布式锁-持久化/" title="redis-2.事务,分布式锁"><img class="cover" src="https://static001.geekbang.org/resource/image/bf/3a/bfe23f6a39b61a5850cb7f317637563a.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2019-12-01</div><div class="title">redis-2.事务,分布式锁</div></div></a></div><div><a href="/2020/02/01/redis-3-持久化-集群模式/" title="redis-3.持久化,集群模式"><img class="cover" src="https://up.enterdesk.com/edpic_source/49/1d/b3/491db3cc8dfd7d7351c07ed97030af9f.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2020-02-01</div><div class="title">redis-3.持久化,集群模式</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-info-avatar is-center"><img class="avatar-img" src="/img/page.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/><div class="author-info__name">束河</div><div class="author-info__description"></div></div><div class="card-info-data"><div class="card-info-data-item is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">25</div></a></div><div class="card-info-data-item is-center"><a href="/tags/"><div class="headline">标签</div><div class="length-num">13</div></a></div><div class="card-info-data-item is-center"><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div></div><a class="button--animated" id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn card-announcement-animation"></i><span>公告</span></div><div class="announcement_content">欢迎来到束河的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-%E7%BC%93%E5%AD%98%E5%92%8C%E6%95%B0%E6%8D%AE%E5%BA%93%E5%8F%8C%E5%86%99%E4%B8%80%E8%87%B4%E6%80%A7%E9%97%AE%E9%A2%98"><span class="toc-number">1.</span> <span class="toc-text">1.缓存和数据库双写一致性问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F%E9%97%AE%E9%A2%98"><span class="toc-number">2.</span> <span class="toc-text">2.缓存穿透问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF%E9%97%AE%E9%A2%98"><span class="toc-number">3.</span> <span class="toc-text">3.缓存击穿问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9%E9%97%AE%E9%A2%98"><span class="toc-number">4.</span> <span class="toc-text">4.缓存雪崩问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3-Redis-%E7%9A%84%E5%B9%B6%E5%8F%91%E7%AB%9E%E4%BA%89-Key-%E9%97%AE%E9%A2%98"><span class="toc-number">5.</span> <span class="toc-text">5.如何解决 Redis 的并发竞争 Key 问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#6-key%E6%98%AF%E5%A6%82%E4%BD%95%E5%AF%BB%E5%9D%80%E7%9A%84"><span class="toc-number">6.</span> <span class="toc-text">6.key是如何寻址的</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#7-Redis-%E7%9A%84%E8%BF%87%E6%9C%9F%E7%AD%96%E7%95%A5%E4%BB%A5%E5%8F%8A%E5%86%85%E5%AD%98%E6%B7%98%E6%B1%B0%E6%9C%BA%E5%88%B6"><span class="toc-number">7.</span> <span class="toc-text">7.Redis 的过期策略以及内存淘汰机制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E7%94%A8%E5%AE%9A%E6%97%B6%E5%88%A0%E9%99%A4%E7%AD%96%E7%95%A5"><span class="toc-number">7.1.</span> <span class="toc-text">7.1为什么不用定时删除策略?</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2%E5%AE%9A%E6%9C%9F%E5%88%A0%E9%99%A4-%E6%83%B0%E6%80%A7%E5%88%A0%E9%99%A4%E6%98%AF%E5%A6%82%E4%BD%95%E5%B7%A5%E4%BD%9C"><span class="toc-number">7.2.</span> <span class="toc-text">7.2定期删除+惰性删除是如何工作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-3%E9%87%87%E7%94%A8%E5%AE%9A%E6%9C%9F%E5%88%A0%E9%99%A4-%E6%83%B0%E6%80%A7%E5%88%A0%E9%99%A4%E5%B0%B1%E6%B2%A1%E5%85%B6%E4%BB%96%E9%97%AE%E9%A2%98%E4%BA%86%E4%B9%88"><span class="toc-number">7.3.</span> <span class="toc-text">7.3采用定期删除+惰性删除就没其他问题了么?</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E6%B7%98%E6%B1%B0%E7%AD%96%E7%95%A5"><span class="toc-number">7.4.</span> <span class="toc-text">内存淘汰策略</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#8-%E7%BC%93%E5%AD%98%E6%B1%A1%E6%9F%93"><span class="toc-number">8.</span> <span class="toc-text">8.缓存污染</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2020/10/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%BF%AB%E6%85%A2/" title="常见双指针-快慢"><img src="https://up.enterdesk.com/edpic_source/c5/f7/18/c5f718dfd577d46cf158afe3d4d45143.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="常见双指针-快慢"/></a><div class="content"><a class="title" href="/2020/10/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%BF%AB%E6%85%A2/" title="常见双指针-快慢">常见双指针-快慢</a><time datetime="2020-10-19T04:12:10.000Z" title="发表于 2020-10-19 12:12:10">2020-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/09/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%AF%B9%E6%92%9E/" title="常见双指针-对撞"><img src="https://up.enterdesk.com/edpic_source/c3/a7/5b/c3a75b3fc93a3f544d9027a90ddf5b69.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="常见双指针-对撞"/></a><div class="content"><a class="title" href="/2020/09/19/%E5%B8%B8%E8%A7%81%E5%8F%8C%E6%8C%87%E9%92%88-%E5%AF%B9%E6%92%9E/" title="常见双指针-对撞">常见双指针-对撞</a><time datetime="2020-09-19T03:09:52.000Z" title="发表于 2020-09-19 11:09:52">2020-09-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/06/18/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E4%BB%A3%E7%90%86/" title="设计模式-代理"><img src="https://up.enterdesk.com/edpic_source/86/97/46/86974689fda7ed0f79f1955f101c369e.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="设计模式-代理"/></a><div class="content"><a class="title" href="/2020/06/18/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E4%BB%A3%E7%90%86/" title="设计模式-代理">设计模式-代理</a><time datetime="2020-06-18T12:41:11.000Z" title="发表于 2020-06-18 20:41:11">2020-06-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/06/15/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%846-%E5%93%88%E5%B8%8C%E8%A1%A8/" title="数据结构6-哈希表"><img src="https://up.enterdesk.com/edpic_source/e0/40/08/e04008d6d6e0875b62932310dbbc97fd.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="数据结构6-哈希表"/></a><div class="content"><a class="title" href="/2020/06/15/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%846-%E5%93%88%E5%B8%8C%E8%A1%A8/" title="数据结构6-哈希表">数据结构6-哈希表</a><time datetime="2020-06-15T14:23:58.000Z" title="发表于 2020-06-15 22:23:58">2020-06-15</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2020/04/16/springboot%E5%B8%B8%E7%94%A8%E6%B3%A8%E8%A7%A3/" title="springboot常用注解"><img src="https://up.enterdesk.com/edpic_source/b5/04/8e/b5048ea27dfc0d8e5c0e9df0be7eb462.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="springboot常用注解"/></a><div class="content"><a class="title" href="/2020/04/16/springboot%E5%B8%B8%E7%94%A8%E6%B3%A8%E8%A7%A3/" title="springboot常用注解">springboot常用注解</a><time datetime="2020-04-16T08:00:54.000Z" title="发表于 2020-04-16 16:00:54">2020-04-16</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;undefined - 2021  <i id="heartbeat" class="fa fas fa-heartbeat"></i> 束河</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/HCLonely/images@master/others/heartbeat.min.css"></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><script src="https://cdn.jsdelivr.net/npm/medium-zoom/dist/medium-zoom.min.js"></script><script>var preloader = {
+  endLoading: () => {
+    document.body.style.overflow = 'auto';
+    document.getElementById('loading-box').classList.add("loaded")
+  },
+  initLoading: () => {
+    document.body.style.overflow = '';
+    document.getElementById('loading-box').classList.remove("loaded")
+
+  }
+}
+window.addEventListener('load',preloader.endLoading())</script><div class="js-pjax"></div><script src="https://cdn.jsdelivr.net/gh/sviptzk/HexoStaticFile@latest/Hexo/js/hideCategory.min.js"></script><script defer="defer" id="fluttering_ribbon" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/canvas-fluttering-ribbon.min.js"></script><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/dist/activate-power-mode.min.js"></script><script>POWERMODE.colorful = true;
+POWERMODE.shake = true;
+POWERMODE.mobile = false;
+document.body.addEventListener('input', POWERMODE);
+</script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
