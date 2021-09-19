@@ -4,6 +4,81 @@
   
     
     <entry>
+      <title>kafka-3:分区</title>
+      <link href="2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/"/>
+      <url>2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/</url>
+      
+        <content type="html"><![CDATA[<h2 id="分区"><a href="#分区" class="headerlink" title="分区"></a>分区</h2><p> <img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/1.png" alt="1"></p><p>分区，其实就是kafka的负载均衡方案，类似mongo的分片</p><p>不同分区放到不同机器节点，每节点独立执行格子分区请求，通过添加新的节点提升吞吐量</p><p>但是目前如果要保证消息的绝对顺序，就不能分区</p><p>但是对于不同的业务来说，不一定保证所有的消息都是顺序的， 只需要关联消息的顺序性，比如当前工作中送礼用户的id，原来工作中的单号</p><hr><h3 id="分区策略"><a href="#分区策略" class="headerlink" title="分区策略"></a>分区策略</h3><ol><li><p>轮询：顺序分配，是 Kafka Java 生产者 API 默认提供的分区策略（未指定partitioner.class参数前提下），<strong>默认情况下它是最合理的分区策略</strong></p><p><img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/2.png" alt="1"></p></li><li><p>随机：基本淘汰了</p></li><li><p>消息建：Key-ordering，简单来说就是根据 key进行hash放到对应分区，从而<strong>达到相同key（关联业务）放到一个分区，从而保证业务顺序性</strong>！！！！！！！！<br><img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/3.png" alt="1"></p></li><li><p>地理位置分区</p></li></ol><p>总结：Java客户端默认的生产者分区策略的实现类为<code>org.apache.kafka.clients.producer.internals.DefaultPartitioner</code>。<br>默认策略为：<strong>如果指定了partition就直接发送到该分区；如果没有指定分区但是指定了key，就按照key的hash值选择分区；如果partition和key都没有指定就使用轮询策略</strong>。<br>而且如果key不为null，那么计算得到的分区号会是所有分区中的任意一个；如果key为null并且有可用分区时，那么计算得到的分区号仅为可用分区中的任意一个</p><hr><h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><ol><li>根据key分区有必要吗？具体案例？</li></ol><p>案例：之前做车辆实时定位(汽车每10s上传一次报文)显示的时候，发现地图显示车辆会突然退回去，开始排查怀疑是后端处理的逻辑问题导致的，但是后台保证了一台车只被一个线程处理，理论上不会出现这种情况；于是猜测是不是程序接收到消息的时候时间序就已经乱了，查阅了kafka相关资料，发现kafka同一个topic是无法保证数据的顺序性的，但是同一个partition中的数据是有顺序的；根据这个查看了接入端的代码(也就是kafka的生产者)，发现是按照kafka的默认分区策略(topic有10个分区，3个副本)发送的；于是将此处发送策略改为按照key(车辆VIN码)进行分区，后面车辆的定位显示就正常了。</p><ol start="2"><li>如果kafka搭了集群，有三个broker：123。这时候我对名称为test的topic发送消息，key设置为A，消息会随机发送到三个broker上去吗?</li></ol><p>会被发送到某个分区的leader副本上。这个分区的leader副本只能存在于3个broker中的一个，但是如果test的副本数是3，那么一条消息也会被备份到其他两个broker上。只是只有leader副本对外提供服务，因此没有顺序乱的情况出现。</p><ol start="3"><li>两个生产者，这时候消息如何确定消息的顺序呢?</li></ol><p>两个生产者生产的消息无法保证顺序，因为它们本身就没有前后之分，它们是并发的关系。除非业务处理</p><ol start="4"><li>一个生产者，发两次消息，但是网络原因，消息到达的顺序和消息发送的顺序不一致怎么办？</li></ol><p>设置max.in.flight.requests.per.connection=1来保证</p><ol start="5"><li>一台机器多个分区也会有负载均衡效果？也会提高吞吐量？</li></ol><p>通常1台broker上有多个分区依然能提升TPS，毕竟单个分区消耗不掉大部分的系统资源。</p><ol start="6"><li>key在哪指定，怎么指定啊</li></ol><p>Producer发送消息的时候可以直接指定key，比如producer.send(new ProducerRecord(“my-topic”, “key”, “value”));</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 正经事 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> kafka </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>kafka-2:集群配置参数</title>
+      <link href="2020/10/29/kafka-2-%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0/"/>
+      <url>2020/10/29/kafka-2-%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0/</url>
+      
+        <content type="html"><![CDATA[<h2 id="Broker-端参数"><a href="#Broker-端参数" class="headerlink" title="Broker 端参数"></a>Broker 端参数</h2><p>就是指的server.properties</p><ul><li><p><code>log.dirs</code>：指定了 <code>Broker</code> 需要使用的若干个文件目录路径（必须手动指定），<font color="red">生产环境中一定要为log.dirs配置多个路径</font>，例如<code>/home/kafka1,/home/kafka2,/home/kafka3</code>。最好挂载到不同的物理磁盘上—提升读写性能：比起单块磁盘，多块物理磁盘同时读写数据有更高的吞吐量 &amp;&amp; 实现故障转移：坏掉的磁盘上的数据会自动地转移到其他正常的磁盘上，而且 <code>Broker</code> 还能正常工作</p></li><li><p><code>listeners</code>：监听器，&lt;协议，主机名，端口&gt;，协议名比如 <code>PLAINTEXT</code> 表示明文传输、<code>SSL</code> 表示使用 <code>SSL</code> 或 <code>TLS</code> 加密传输等，自己定义的协议名字，比如<code>CONTROLLER: //localhost:9092</code>。必须还要指定<code>listener.security.protocol.map</code>参数告诉这个协议底层使用了哪种安全协议，比如指定<code>listener.security.protocol.map=CONTROLLER:PLAINTEXT</code>表示<code>CONTROLLER</code>这个自定义协议底层使用明文不加密传输数据。主机名，用ip也行，但用ip可能出现无法连接情况，</p></li><li><p>advertised.listeners：对外监听,主要是为外网访问用的。如果clients在内网环境访问Kafka不需要配置这个参数。<br>常见的玩法是：你的Kafka Broker机器上配置了双网卡，一块网卡用于内网访问（即我们常说的内网IP）；另一个块用于外网访问。那么你可以配置<code>listeners</code>为内网IP，<code>advertised.listeners</code>为外网IP。</p></li><li><p><code>auto.create.topics.enable</code>:是否允许自动生成topic,最好设置为false，不然代码写错了topic，就会自动生成错误的topic，管理混乱</p></li><li><p><code>unclean.leader.election.enable</code>:是否允许 Unclean Leader 选举,建议设置成false,比如当前分区leader副本挂了，同时几个数据比较多的追随者副本也挂了，只剩下一个一条数据的副本，要是让他当了leader会出现丢数据情况，所以宁可让这个分区失效，也不应该让他当领导。如果设置为true，就要做好丢数据的准备</p></li><li><p><code>auto.leader.rebalance.enable</code>：是否允许 Kafka 定期地对一些 Topic 分区进行 Leader 重选。建议false。参数<code>leader.imbalance.per.broker.percentage</code>控制触发比例，默认是10%。举个例子，如果一个broker上有10个分区，有2个分区的leader不是preferred leader，那么就会触发</p></li><li><p><code>message.max.bytes</code>:接受消息数据最大字节</p></li></ul><hr><h2 id="Topic-级别参数"><a href="#Topic-级别参数" class="headerlink" title="Topic 级别参数"></a>Topic 级别参数</h2><p>Topic 级别参数会覆盖全局 Broker 参数的值，而每个 Topic 都能设置自己的参数值，这就是所谓的 Topic 级别参数</p><p>例如Topic 根据自身业务需要，设置自己的留存时间，会覆盖broker的最长时间参数</p><ul><li><p>retention.ms ： 消息保存最长时间</p></li><li><p>retention.bytes： 可以使用多大磁盘空间，默认-1，无限使用磁盘空间</p></li><li><p>max.message.bytes：同broker一样</p></li></ul><p>使用参数创建实例：<br><code>bin/kafka-topics.sh--bootstrap-serverlocalhost:9092--create--topictransaction--partitions1--replication-factor1--configretention.ms=15552000000--configmax.message.bytes=5242880</code></p><p>修改示例：<br><code>bin/kafka-configs.sh--zookeeperlocalhost:2181--entity-typetopics--entity-nametransaction--alter--add-configmax.message.bytes=10485760</code></p><hr><h2 id="JVM-参数"><a href="#JVM-参数" class="headerlink" title="JVM 参数"></a>JVM 参数</h2><ul><li>如果 Broker 所在机器的 CPU 资源非常充裕，建议使用 CMS 收集器。启用方法是指定-XX:+UseCurrentMarkSweepGC。</li><li>使用吞吐量收集器。开启方法是指定-XX:+UseParallelGC</li><li>已经在使用 Java 9 了，那么就用默认的 G1 收集器就好了。在没有任何调优的情况下，G1 表现得要比 CMS 出色，主要体现在更少的 Full GC，需要调整的参数更少等，所以使用 G1 就好了。</li></ul><p>注：需要再启动的时候指定</p><p>ulimit -n：随便往大了设置下，如果不设置，单机在Centos7上几百的并发就报“Too many open files”，如ulimit -n 1000000（任何一个 Java 项目最好都调整下这个值）</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 正经事 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> kafka </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>kafka-1:简介</title>
+      <link href="2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/"/>
+      <url>2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/</url>
+      
+        <content type="html"><![CDATA[<h2 id="什么是kafka"><a href="#什么是kafka" class="headerlink" title="什么是kafka?"></a>什么是kafka?</h2><p>中间件？一个分布式流处理平台？消息队列？消息引擎系统？都是</p><h2 id="主题（Topic）"><a href="#主题（Topic）" class="headerlink" title="主题（Topic）"></a>主题（Topic）</h2><p>发布订阅的对象</p><p>每个业务、每个应用甚至是每类数据都创建专属的主题</p><p>向主题发布消息的客户端称为生产者<br>订阅主题消息的客户端应用程序就为消费者</p><p>一个 Kafka 集群由多个 <code>Broker</code> 组成，<code>Broker</code> 负责接收和处理客户端发送过来的请求，及对消息进行持久化。<br>常见的做法是将不同的 Broker 分散运行在不同的机器上，防止都在一台，服务器挂了就都废了</p><p>客户端 = 生产 + 消费<br>服务端 = <code>Broker</code> 服务进程， 一个 Kafka 集群由多个 <code>Broker</code> 组成</p><h2 id="副本"><a href="#副本" class="headerlink" title="副本"></a>副本</h2><p>相同的数据拷贝到多台机器上</p><p>领导者副本（Leader Replica）：对外提供服务<br>追随者副本（Follower Replica）：被动地追随领导者副本，<font color="red">不能与外界进行交互（不像mysql、redis等）</font>，向领导者副本发送请求，请求领导者把最新生产的消息发给它，这样它能保持与领导者的同步</p><ul><li>为什么不想mysql一样，追随者也可以对外提供读服务？</li></ul><p>如果允许follower副本对外提供读服务（主写从读），首先会存在<strong>数据一致性</strong>的问题，消息从主节点同步到从节点需要时间，可能造成主从节点的数据不一致。</p><p>主写从读无非就是为了减轻leader节点的压力，将读请求的负载均衡到follower节点，如果<strong>Kafka的分区相对均匀地分散到各个broker上，同样可以达到负载均衡的效果</strong></p><p>mysql一般部署在不同的机器上一台机器读写会遇到瓶颈，Kafka中的领导者副本一般均匀分布在不同的broker中，已经起到了负载的作用。即：同一个topic的已经通过分区的形式负载到不同的broker上了，读写的时候针对的领导者副本，但是量相比mysql一个还实例少太多，个人觉得没有必要在提供度读服务了。（如果量大还可以使用更多的副本，让每一个副本本身都不太大）</p><p>Kafka也<strong>不属于典型的读多写少场景</strong>，主从分离的优势不明显</p><ul><li>领导者副本积累了太多的数据，单台 Broker 机器都无法容纳怎么办？—伸缩性问题：分区</li></ul><h2 id="分区（Partition）"><a href="#分区（Partition）" class="headerlink" title="分区（Partition）"></a>分区（Partition）</h2><p>将每个主题划分成多个分区（Partition），每个分区是一组有序的消息日志。<br>生产者生产的每条消息只会被发送到一个分区中，也就是说如果向一个双分区的主题发送一条消息，这条消息要么在分区 0 中，要么在分区 1 中。<br>（副本是在分区这个层级定义的。每个分区下可以配置 1领导 + n 追随）</p><p>生产者向分区写入消息，每条消息在分区中的位置信息由一个叫位移（Offset）的数据来表征。分区位移总是从 0 开始</p><p>多个分区多个领导者，实现负载。</p><p>但是目前kafka设计多个分区的话无法保证全局的消息顺序。如果一定要实现全局的消息顺序，只能单分区</p><p>1个主题有2个分区，消费者组有3个消费者：有一个消费者将无法分配到任何分区，处于idle状态</p><p> Kafka 的三层消息架构：</p><ul><li>第一层是主题层，每个主题可以配置 M 个分区，而每个分区又可以配置 N 个副本。</li><li>第二层是分区层，每个分区的 N 个副本中只能有一个充当领导者角色，对外提供服务；其他 N-1 个副本是追随者副本，只是提供数据冗余之用。</li><li>第三层是消息层，分区中包含若干条消息，每条消息的位移从 0 开始，依次递增。</li><li>最后，客户端程序只能与分区的领导者副本进行交互。</li></ul><hr><h2 id="消息模型"><a href="#消息模型" class="headerlink" title="消息模型"></a>消息模型</h2><p>分为点对点和发布订阅<br>点对点主要就是消费者组实现（group）<br>消费者组：多个消费者实例(进程、线程)共同组成一个组来消费一组主题,这组主题中的每个分区都只会被组内的一个消费者实例消费，其他消费者实例不能消费它<br>提升消费者端的吞吐量。多个消费者实例同时消费，加速整个消费端的吞吐量<br>消费者组里面的所有消费者实例之间不但会竞争“消息资源”，还会彼此协作—重平衡（Rebalance）</p><p>重平衡（Rebalance）：组内某个实例挂掉了，Kafka自动检测到，把这个 Failed 实例之前负责的分区转移给其他活着的消费者</p><p>使用standalone consumer就完全避免rebalance了。事实上很多主流大数据流处理框架（Spark、Flink）都是这么使用的</p><h2 id="位移和消息位移"><a href="#位移和消息位移" class="headerlink" title="位移和消息位移"></a>位移和消息位移</h2><p>消费者位移（Consumer Offset）：每个消费者在消费消息的过程中必然需要有个字段记录它当前消费到了分区的哪个位置上</p><p>位移（Offset）：每条消息在分区中的位置信息</p><p>区别：<br>“位移”表征的是分区内的消息位置，它是不变的，即一旦消息被成功写入到一个分区上，它的位移值就是固定的了，针对的消息</p><p>“消费者位移”是随时变化的，毕竟它是消费者消费进度的指示器。另外每个消费者有着自己的消费者位移，消费完消息后使用一定策略更新自己的位移，针对的是消费者</p><p> <img src="/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/1.png" alt="1"></p><h2 id="日志"><a href="#日志" class="headerlink" title="日志"></a>日志</h2><p>消息日志保存数据，只能追加写，顺序I/O,不能随机I.O，保证了高吞吐量，<br>日志删除：为了避免日志堆积过多，提出日志段，旧的日志段写满了之后会再创建新的日志段，旧的日志段封存，定时任务扫描老的日志段是否能够删除</p><hr><h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><ul><li>mq和rpc调用的区别是什么呢?</li></ul><p>mq和rpc的区别往大了说属于数据流模式（dataflow mode）的问题。我们常见的数据流有三种：1. 通过数据库；2. 通过服务调用（REST/RPC）; 3. 通过异步消息传递（消息引擎，如Kafka）<br>RPC和MQ是有相似之处的，毕竟我们远程调用一个服务也可以看做是一个事件，但不同之处在于：</p><ol><li>MQ有自己的buffer，能够对抗过载（overloaded）和不可用场景</li><li>MQ支持重试</li><li>允许发布/订阅模式<br>当然它们还有其他区别。应该这样说RPC是介于通过数据库和通过MQ之间的数据流模式。</li></ol><ul><li>进程件通信的方式</li></ul><p>两个进程进行数据流交互的方式一般有三种：</p><ol><li>通过数据库：进程1写入数据库；进程2读取数据库（或者文件库）</li><li>通过服务调用：比如REST或RPC，而HTTP协议通常就作为REST方式的底层通讯协议</li><li>通过消息传递的方式：进程1发送消息给名为broker的中间件，然后进程2从该broker中读取消息。消息传输协议属于这种模式</li></ol><ul><li>为什么不直接通讯</li></ul><ol><li>削峰填谷：缓冲上下游瞬时突发流量，使其更平滑。特别是对于那种发送能力很强的上游系统，保护了下游</li><li>下游服务多，需要都发送吗？费劲，降低耦合，易扩展</li></ol><ul><li>Kafka 提供高可用有哪些手段</li></ul><ol><li>Broker 分散运行在不同的机器上，某台服务器所有 Broker 进程都挂掉了，其他机器上的 Broker 也依然能够对外提供服务</li><li>备份机制</li></ol><ul><li>java写的kafka为什么都是部署在linux上？</li></ul><ol><li>I/O: Kafka 客户端底层使用了 Java 的 selector，selector 在 Linux 上的实现机制是 epoll，而在 Windows 平台上的实现机制是 select,性能低</li><li>网络传输： Linux 部署 Kafka 能够享受到零拷贝技术所带来的快速数据传输特性。Windows 平台上必须要等到 Java 8 的 60 更新版本才行</li></ol><ul><li>需要固态硬盘吗？</li></ul><ol><li><p>多是顺序读写操作，一定程度上规避了机械磁盘最大的劣势，即随机读写操作慢。从这一点上来说，使用 SSD 似乎并没有太大的性能优势</p></li><li><p>使用磁盘阵列（RAID）：提供冗余的磁盘存储空间，提供负载均衡（但是kafka不太需要，自己就有高可用+负载均衡，有钱随便）</p><p><img src="/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/1.png" alt="1"></p></li></ol>]]></content>
+      
+      
+      <categories>
+          
+          <category> 正经事 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> kafka </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>redis13-慢redis总结</title>
       <link href="2020/10/14/redis13-%E6%85%A2redis%E6%80%BB%E7%BB%93/"/>
       <url>2020/10/14/redis13-%E6%85%A2redis%E6%80%BB%E7%BB%93/</url>
@@ -179,6 +254,31 @@
     
     
     <entry>
+      <title>设计模式-原则</title>
+      <link href="2020/09/14/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%8E%9F%E5%88%99/"/>
+      <url>2020/09/14/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%8E%9F%E5%88%99/</url>
+      
+        <content type="html"><![CDATA[<h2 id="单一职责（SRP）"><a href="#单一职责（SRP）" class="headerlink" title="单一职责（SRP）"></a>单一职责（SRP）</h2><p><strong>一个类或者模块只负责完成一个职责</strong>，不要设计大而全的类，要设计粒度小、功能单一的类。换个角度来讲就是，一个类包含了两个或者两个以上业务不相干的功能，那我们就说它职责不够单一，应该将它拆分成多个功能更加单一、粒度更细的类。</p><h3 id="如何判断类的职责是否足够单一？"><a href="#如何判断类的职责是否足够单一？" class="headerlink" title="如何判断类的职责是否足够单一？"></a>如何判断类的职责是否足够单一？</h3><p>不同的应用场景、不同阶段的需求背景下，对同一个类的职责是否单一的判定，可能都是不一样的<br>比如业务简单就是要展示用户信息，所以省市区等字段都写到userinfo都没事<br>但是后面业务扩展多了电商物流等业务，可能就要把地址拆分成单独的，需求变了，单一的定义也就变了<br>虽然一开始就拆容易拓展但也有问题：一条数据库信息要创建多个类，如果数据库也拆了就要做多次数据库操作</p><p><strong>可以先写一个粗粒度的类，满足业务需求。随着业务的发展，如果粗粒度的类越来越庞大，代码越来越多，这个时候，我们就可以将这个粗粒度的类，拆分成几个更细粒度的类</strong>。这就是所谓的持续重构</p><p>判断单一的几条参考原则：</p><ol><li>类中的代码行数、函数或属性过多，会影响代码的可读性和可维护性，我们就需要考虑对类进行拆分</li><li>类依赖的其他类过多，或者依赖类的其他类过多，不符合高内聚、低耦合的设计思想，我们就需要考虑对类进行拆分</li><li>私有方法过多，我们就要考虑能否将私有方法独立到新的类中，设置为 public 方法，供更多的类使用，从而提高代码的复用性</li><li>比较难给类起一个合适名字，很难用一个业务名词概括，或者只能用一些笼统的 Manager、Context 之类的词语来命名，这就说明类的职责定义得可能不够清晰</li><li>类中大量的方法都是集中操作类中的某几个属性，比如，在 UserInfo 例子中，如果一半的方法都是在操作 address 信息，那就可以考虑将这几个属性和对应的方法拆分出来。</li></ol><h3 id="类的职责是否设计得越单一越好？"><a href="#类的职责是否设计得越单一越好？" class="headerlink" title="类的职责是否设计得越单一越好？"></a>类的职责是否设计得越单一越好？</h3><p>单一职责原则通过避免设计大而全的类，避免将不相关的功能耦合在一起，来提高类的内聚性。同时，类职责单一，类依赖的和被依赖的其他类也会变少，减少了代码的耦合性，以此来实现代码的高内聚、低耦合。但是，如果拆分得过细，实际上会适得其反，反倒会降低内聚性，也会影响代码的可维护性。</p><h2 id="开闭原则-OCP"><a href="#开闭原则-OCP" class="headerlink" title="开闭原则(OCP)"></a>开闭原则(OCP)</h2><p>怎样的代码改动才被定义为‘扩展’？<br>怎样的代码改动才被定义为‘修改’？<br>怎么才算满足或违反‘开闭原则’？<br>修改代码就一定意味着违反‘开闭原则’吗？”</p><p>扩展性是代码质量最重要的衡量标准之一。在 23 种经典设计模式中，大部分设计模式都是为了解决代码的扩展性问题而存在的，主要遵从的设计原则就是开闭原则！</p><h3 id="怎么理解开闭原则？"><a href="#怎么理解开闭原则？" class="headerlink" title="怎么理解开闭原则？"></a>怎么理解开闭原则？</h3><p>我写的你别改，要加功能自己整—添加一个新的功能应该是，在已有代码基础上扩展代码（新增模块、类、方法等），而非修改已有代码</p><h3 id="如何做到“对扩展开放、修改关闭”？"><a href="#如何做到“对扩展开放、修改关闭”？" class="headerlink" title="如何做到“对扩展开放、修改关闭”？"></a>如何做到“对扩展开放、修改关闭”？</h3><p>具备扩展意识、抽象意识、封装意识。在写代码的时候，我们要多花点时间思考一下，这段代码未来可能有哪些需求变更，如何设计代码结构，事先留好扩展点，以便在未来需求变更的时候，在不改动代码整体结构、做到最小代码改动的情况下，将新的代码灵活地插入到扩展点上。<br>很多设计原则、设计思想、设计模式，都是以提高代码的扩展性为最终目的的。特别是 23 种经典设计模式，大部分都是为了解决代码的扩展性问题而总结出来的，都是以开闭原则为指导原则的。<br>最常用来提高代码扩展性的方法有：<strong>多态、依赖注入、基于接口而非实现编程</strong>，以及大部分的设计模式（比如，装饰、策略、模板、职责链、状态）。</p><p>对拓展开放是为了应对变化(需求)，对修改关闭是为了保证已有代码的稳定性；最终结果是为了让系统更有弹性！不然新增功能可能老代码都要测试</p><p>现在公司代码反思：<br>入参出参全是map，和oop不沾边，虽然接口复制粘贴改动小，但是数据不明确,一行一行看实现才能看出具体代码，校验逻辑及其数据转换贼墨迹，尤其强转</p><h2 id="里式替换（LSP）"><a href="#里式替换（LSP）" class="headerlink" title="里式替换（LSP）"></a>里式替换（LSP）</h2><h3 id="如何理解“里式替换原则”？"><a href="#如何理解“里式替换原则”？" class="headerlink" title="如何理解“里式替换原则”？"></a>如何理解“里式替换原则”？</h3><p>子类对象能够替换父类对象出现的任何地方，并保证原有逻辑正确。</p><h3 id="哪些代码明显违背了-LSP？"><a href="#哪些代码明显违背了-LSP？" class="headerlink" title="哪些代码明显违背了 LSP？"></a>哪些代码明显违背了 LSP？</h3>]]></content>
+      
+      
+      <categories>
+          
+          <category> 正经事 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> 设计模式 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>redis6-哨兵</title>
       <link href="2020/09/14/redis6-%E5%93%A8%E5%85%B5/"/>
       <url>2020/09/14/redis6-%E5%93%A8%E5%85%B5/</url>
@@ -229,31 +329,6 @@
     
     
     <entry>
-      <title>redis4-RDB</title>
-      <link href="2020/09/09/redis4-RDB/"/>
-      <url>2020/09/09/redis4-RDB/</url>
-      
-        <content type="html"><![CDATA[<h1 id="RDB快照"><a href="#RDB快照" class="headerlink" title="RDB快照"></a>RDB快照</h1><p>AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响到正常使用</p><p>RDB内存快照：记录的是某一时刻的数据（<strong>全量数据</strong>）</p><p>save：在主线程中执行，会导致阻塞<br>bgsave：创建一个子进程，专门用于写入 RDB 文件（默认）</p><h2 id="创建RDB期间，redis还能提供写操作"><a href="#创建RDB期间，redis还能提供写操作" class="headerlink" title="创建RDB期间，redis还能提供写操作"></a>创建RDB期间，redis还能提供写操作</h2><p>Redis 借助操作系统提供的写时复制技术（Copy-On-Write, COW），在执行快照的同时，正常处理写操作。<br>bgsave 子进程是由主线程 fork 生成的，可以共享主线程的所有内存数据。bgsave 子进程运行后，开始读取主线程的内存数据，并把它们写入 RDB 文件。<br>主线程和 bgsave 子进程相互不影响。但是，如果主线程要修改一块数据，那么，这块数据就会被复制一份副本，主线程在副本上进行修改。同时，bgsave 子进程可以继续把原来的数据写入 RDB 文件。</p><p><img src="/2020/09/09/redis4-RDB/9.jpg" alt="导入"></p><h2 id="多久一次"><a href="#多久一次" class="headerlink" title="多久一次"></a>多久一次</h2><p>不能太频繁，多个快照写入竞争磁盘带宽，且fork过程会阻塞主线程<br>同时<br>Redis 中如果有一个 bgsave 在运行，就不会再启动第二个 bgsave 子进程（霸道）</p><h2 id="RDB风险"><a href="#RDB风险" class="headerlink" title="RDB风险"></a>RDB风险</h2><p>例如：2核CPU、4GB内存、500G磁盘，Redis实例占用2GB，写读比例为8:2，此时做RDB持久化，产生的风险主要在于 CPU资源 和 内存资源 这2方面：</p><p>a、内存资源风险：Redis fork子进程做RDB持久化，由于写的比例为80%，那么在持久化过程中，“写实复制”会重新分配整个实例80%的内存副本，大约需要重新分配1.6GB内存空间，这样整个系统的内存使用接近饱和，如果此时父进程又有大量新key写入，很快机器内存就会被吃光，如果机器开启了Swap机制，那么Redis会有一部分数据被换到磁盘上，当Redis访问这部分在磁盘上的数据时，性能会急剧下降，已经达不到高性能的标准（可以理解为武功被废）。如果机器没有开启Swap，会直接触发OOM，父子进程会面临被系统kill掉的风险。</p><p>b、CPU资源风险：虽然子进程在做RDB持久化，但生成RDB快照过程会消耗大量的CPU资源，虽然Redis处理处理请求是单线程的，但Redis Server还有其他线程在后台工作，例如AOF每秒刷盘、异步关闭文件描述符这些操作。由于机器只有2核CPU，这也就意味着父进程占用了超过一半的CPU资源，此时子进程做RDB持久化，可能会产生CPU竞争，导致的结果就是父进程处理请求延迟增大，子进程生成RDB快照的时间也会变长，整个Redis Server性能下降。</p><h2 id="增量快照"><a href="#增量快照" class="headerlink" title="增量快照"></a>增量快照</h2><p>全量之后只对修改过的数据进行记录<br>怎么记录—-AOF reids4.0 实现两种持久化的结合：一定频率执行RDB，两次RDB期间AOF</p><p>不用频繁forK rdb &amp;&amp;重写 进程，不用频繁重写AOF文件</p><h2 id="关于-AOF-和-RDB-的选择问题"><a href="#关于-AOF-和-RDB-的选择问题" class="headerlink" title="关于 AOF 和 RDB 的选择问题"></a>关于 AOF 和 RDB 的选择问题</h2><p>数据不能丢失时，内存快照和 AOF 的混合使用是一个很好的选择；<br>如果允许分钟级别的数据丢失，可以只使用 RDB；<br>如果只用 AOF，优先使用 everysec 的配置选项，因为它在可靠性和性能之间取了一个平衡。</p>]]></content>
-      
-      
-      <categories>
-          
-          <category> 正经事 </category>
-          
-      </categories>
-      
-      
-        <tags>
-            
-            <tag> redis </tag>
-            
-        </tags>
-      
-    </entry>
-    
-    
-    
-    <entry>
       <title>java一些基础巩固</title>
       <link href="2020/09/09/java%E4%B8%80%E4%BA%9B%E5%9F%BA%E7%A1%80%E5%B7%A9%E5%9B%BA/"/>
       <url>2020/09/09/java%E4%B8%80%E4%BA%9B%E5%9F%BA%E7%A1%80%E5%B7%A9%E5%9B%BA/</url>
@@ -271,6 +346,31 @@
         <tags>
             
             <tag> Java </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>redis4-RDB</title>
+      <link href="2020/09/09/redis4-RDB/"/>
+      <url>2020/09/09/redis4-RDB/</url>
+      
+        <content type="html"><![CDATA[<h1 id="RDB快照"><a href="#RDB快照" class="headerlink" title="RDB快照"></a>RDB快照</h1><p>AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响到正常使用</p><p>RDB内存快照：记录的是某一时刻的数据（<strong>全量数据</strong>）</p><p>save：在主线程中执行，会导致阻塞<br>bgsave：创建一个子进程，专门用于写入 RDB 文件（默认）</p><h2 id="创建RDB期间，redis还能提供写操作"><a href="#创建RDB期间，redis还能提供写操作" class="headerlink" title="创建RDB期间，redis还能提供写操作"></a>创建RDB期间，redis还能提供写操作</h2><p>Redis 借助操作系统提供的写时复制技术（Copy-On-Write, COW），在执行快照的同时，正常处理写操作。<br>bgsave 子进程是由主线程 fork 生成的，可以共享主线程的所有内存数据。bgsave 子进程运行后，开始读取主线程的内存数据，并把它们写入 RDB 文件。<br>主线程和 bgsave 子进程相互不影响。但是，如果主线程要修改一块数据，那么，这块数据就会被复制一份副本，主线程在副本上进行修改。同时，bgsave 子进程可以继续把原来的数据写入 RDB 文件。</p><p><img src="/2020/09/09/redis4-RDB/9.jpg" alt="导入"></p><h2 id="多久一次"><a href="#多久一次" class="headerlink" title="多久一次"></a>多久一次</h2><p>不能太频繁，多个快照写入竞争磁盘带宽，且fork过程会阻塞主线程<br>同时<br>Redis 中如果有一个 bgsave 在运行，就不会再启动第二个 bgsave 子进程（霸道）</p><h2 id="RDB风险"><a href="#RDB风险" class="headerlink" title="RDB风险"></a>RDB风险</h2><p>例如：2核CPU、4GB内存、500G磁盘，Redis实例占用2GB，写读比例为8:2，此时做RDB持久化，产生的风险主要在于 CPU资源 和 内存资源 这2方面：</p><p>a、内存资源风险：Redis fork子进程做RDB持久化，由于写的比例为80%，那么在持久化过程中，“写实复制”会重新分配整个实例80%的内存副本，大约需要重新分配1.6GB内存空间，这样整个系统的内存使用接近饱和，如果此时父进程又有大量新key写入，很快机器内存就会被吃光，如果机器开启了Swap机制，那么Redis会有一部分数据被换到磁盘上，当Redis访问这部分在磁盘上的数据时，性能会急剧下降，已经达不到高性能的标准（可以理解为武功被废）。如果机器没有开启Swap，会直接触发OOM，父子进程会面临被系统kill掉的风险。</p><p>b、CPU资源风险：虽然子进程在做RDB持久化，但生成RDB快照过程会消耗大量的CPU资源，虽然Redis处理处理请求是单线程的，但Redis Server还有其他线程在后台工作，例如AOF每秒刷盘、异步关闭文件描述符这些操作。由于机器只有2核CPU，这也就意味着父进程占用了超过一半的CPU资源，此时子进程做RDB持久化，可能会产生CPU竞争，导致的结果就是父进程处理请求延迟增大，子进程生成RDB快照的时间也会变长，整个Redis Server性能下降。</p><h2 id="增量快照"><a href="#增量快照" class="headerlink" title="增量快照"></a>增量快照</h2><p>全量之后只对修改过的数据进行记录<br>怎么记录—-AOF reids4.0 实现两种持久化的结合：一定频率执行RDB，两次RDB期间AOF</p><p>不用频繁forK rdb &amp;&amp;重写 进程，不用频繁重写AOF文件</p><h2 id="关于-AOF-和-RDB-的选择问题"><a href="#关于-AOF-和-RDB-的选择问题" class="headerlink" title="关于 AOF 和 RDB 的选择问题"></a>关于 AOF 和 RDB 的选择问题</h2><p>数据不能丢失时，内存快照和 AOF 的混合使用是一个很好的选择；<br>如果允许分钟级别的数据丢失，可以只使用 RDB；<br>如果只用 AOF，优先使用 everysec 的配置选项，因为它在可靠性和性能之间取了一个平衡。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 正经事 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> redis </tag>
             
         </tags>
       

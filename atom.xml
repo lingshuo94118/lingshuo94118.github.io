@@ -6,7 +6,7 @@
   <link href="http://example.com/atom.xml" rel="self"/>
   
   <link href="http://example.com/"/>
-  <updated>2021-09-14T08:12:43.737Z</updated>
+  <updated>2021-09-19T16:33:17.107Z</updated>
   <id>http://example.com/</id>
   
   <author>
@@ -15,6 +15,82 @@
   </author>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>kafka-3:分区</title>
+    <link href="http://example.com/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/"/>
+    <id>http://example.com/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/</id>
+    <published>2020-11-14T14:31:30.000Z</published>
+    <updated>2021-09-19T16:33:17.107Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="分区"><a href="#分区" class="headerlink" title="分区"></a>分区</h2><p> <img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/1.png" alt="1"></p><p>分区，其实就是kafka的负载均衡方案，类似mongo的分片</p><p>不同分区放到不同机器节点，每节点独立执行格子分区请求，通过添加新的节点提升吞吐量</p><p>但是目前如果要保证消息的绝对顺序，就不能分区</p><p>但是对于不同的业务来说，不一定保证所有的消息都是顺序的， 只需要关联消息的顺序性，比如当前工作中送礼用户的id，原来工作中的单号</p><hr><h3 id="分区策略"><a href="#分区策略" class="headerlink" title="分区策略"></a>分区策略</h3><ol><li><p>轮询：顺序分配，是 Kafka Java 生产者 API 默认提供的分区策略（未指定partitioner.class参数前提下），<strong>默认情况下它是最合理的分区策略</strong></p><p><img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/2.png" alt="1"></p></li><li><p>随机：基本淘汰了</p></li><li><p>消息建：Key-ordering，简单来说就是根据 key进行hash放到对应分区，从而<strong>达到相同key（关联业务）放到一个分区，从而保证业务顺序性</strong>！！！！！！！！<br><img src="/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/3.png" alt="1"></p></li><li><p>地理位置分区</p></li></ol><p>总结：Java客户端默认的生产者分区策略的实现类为<code>org.apache.kafka.clients.producer.internals.DefaultPartitioner</code>。<br>默认策略为：<strong>如果指定了partition就直接发送到该分区；如果没有指定分区但是指定了key，就按照key的hash值选择分区；如果partition和key都没有指定就使用轮询策略</strong>。<br>而且如果key不为null，那么计算得到的分区号会是所有分区中的任意一个；如果key为null并且有可用分区时，那么计算得到的分区号仅为可用分区中的任意一个</p><hr><h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><ol><li>根据key分区有必要吗？具体案例？</li></ol><p>案例：之前做车辆实时定位(汽车每10s上传一次报文)显示的时候，发现地图显示车辆会突然退回去，开始排查怀疑是后端处理的逻辑问题导致的，但是后台保证了一台车只被一个线程处理，理论上不会出现这种情况；于是猜测是不是程序接收到消息的时候时间序就已经乱了，查阅了kafka相关资料，发现kafka同一个topic是无法保证数据的顺序性的，但是同一个partition中的数据是有顺序的；根据这个查看了接入端的代码(也就是kafka的生产者)，发现是按照kafka的默认分区策略(topic有10个分区，3个副本)发送的；于是将此处发送策略改为按照key(车辆VIN码)进行分区，后面车辆的定位显示就正常了。</p><ol start="2"><li>如果kafka搭了集群，有三个broker：123。这时候我对名称为test的topic发送消息，key设置为A，消息会随机发送到三个broker上去吗?</li></ol><p>会被发送到某个分区的leader副本上。这个分区的leader副本只能存在于3个broker中的一个，但是如果test的副本数是3，那么一条消息也会被备份到其他两个broker上。只是只有leader副本对外提供服务，因此没有顺序乱的情况出现。</p><ol start="3"><li>两个生产者，这时候消息如何确定消息的顺序呢?</li></ol><p>两个生产者生产的消息无法保证顺序，因为它们本身就没有前后之分，它们是并发的关系。除非业务处理</p><ol start="4"><li>一个生产者，发两次消息，但是网络原因，消息到达的顺序和消息发送的顺序不一致怎么办？</li></ol><p>设置max.in.flight.requests.per.connection=1来保证</p><ol start="5"><li>一台机器多个分区也会有负载均衡效果？也会提高吞吐量？</li></ol><p>通常1台broker上有多个分区依然能提升TPS，毕竟单个分区消耗不掉大部分的系统资源。</p><ol start="6"><li>key在哪指定，怎么指定啊</li></ol><p>Producer发送消息的时候可以直接指定key，比如producer.send(new ProducerRecord(“my-topic”, “key”, “value”));</p>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h2 id=&quot;分区&quot;&gt;&lt;a href=&quot;#分区&quot; class=&quot;headerlink&quot; title=&quot;分区&quot;&gt;&lt;/a&gt;分区&lt;/h2&gt;&lt;p&gt; &lt;img src=&quot;/2020/11/14/kafka-3-%E5%88%86%E5%8C%BA/1.png&quot; alt=&quot;1&quot;&gt;&lt;/p&gt;
+</summary>
+      
+    
+    
+    
+    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
+    
+    
+    <category term="kafka" scheme="http://example.com/tags/kafka/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>kafka-2:集群配置参数</title>
+    <link href="http://example.com/2020/10/29/kafka-2-%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0/"/>
+    <id>http://example.com/2020/10/29/kafka-2-%E9%9B%86%E7%BE%A4%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0/</id>
+    <published>2020-10-29T11:54:02.000Z</published>
+    <updated>2021-09-19T16:31:58.578Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="Broker-端参数"><a href="#Broker-端参数" class="headerlink" title="Broker 端参数"></a>Broker 端参数</h2><p>就是指的server.properties</p><ul><li><p><code>log.dirs</code>：指定了 <code>Broker</code> 需要使用的若干个文件目录路径（必须手动指定），<font color="red">生产环境中一定要为log.dirs配置多个路径</font>，例如<code>/home/kafka1,/home/kafka2,/home/kafka3</code>。最好挂载到不同的物理磁盘上—提升读写性能：比起单块磁盘，多块物理磁盘同时读写数据有更高的吞吐量 &amp;&amp; 实现故障转移：坏掉的磁盘上的数据会自动地转移到其他正常的磁盘上，而且 <code>Broker</code> 还能正常工作</p></li><li><p><code>listeners</code>：监听器，&lt;协议，主机名，端口&gt;，协议名比如 <code>PLAINTEXT</code> 表示明文传输、<code>SSL</code> 表示使用 <code>SSL</code> 或 <code>TLS</code> 加密传输等，自己定义的协议名字，比如<code>CONTROLLER: //localhost:9092</code>。必须还要指定<code>listener.security.protocol.map</code>参数告诉这个协议底层使用了哪种安全协议，比如指定<code>listener.security.protocol.map=CONTROLLER:PLAINTEXT</code>表示<code>CONTROLLER</code>这个自定义协议底层使用明文不加密传输数据。主机名，用ip也行，但用ip可能出现无法连接情况，</p></li><li><p>advertised.listeners：对外监听,主要是为外网访问用的。如果clients在内网环境访问Kafka不需要配置这个参数。<br>常见的玩法是：你的Kafka Broker机器上配置了双网卡，一块网卡用于内网访问（即我们常说的内网IP）；另一个块用于外网访问。那么你可以配置<code>listeners</code>为内网IP，<code>advertised.listeners</code>为外网IP。</p></li><li><p><code>auto.create.topics.enable</code>:是否允许自动生成topic,最好设置为false，不然代码写错了topic，就会自动生成错误的topic，管理混乱</p></li><li><p><code>unclean.leader.election.enable</code>:是否允许 Unclean Leader 选举,建议设置成false,比如当前分区leader副本挂了，同时几个数据比较多的追随者副本也挂了，只剩下一个一条数据的副本，要是让他当了leader会出现丢数据情况，所以宁可让这个分区失效，也不应该让他当领导。如果设置为true，就要做好丢数据的准备</p></li><li><p><code>auto.leader.rebalance.enable</code>：是否允许 Kafka 定期地对一些 Topic 分区进行 Leader 重选。建议false。参数<code>leader.imbalance.per.broker.percentage</code>控制触发比例，默认是10%。举个例子，如果一个broker上有10个分区，有2个分区的leader不是preferred leader，那么就会触发</p></li><li><p><code>message.max.bytes</code>:接受消息数据最大字节</p></li></ul><hr><h2 id="Topic-级别参数"><a href="#Topic-级别参数" class="headerlink" title="Topic 级别参数"></a>Topic 级别参数</h2><p>Topic 级别参数会覆盖全局 Broker 参数的值，而每个 Topic 都能设置自己的参数值，这就是所谓的 Topic 级别参数</p><p>例如Topic 根据自身业务需要，设置自己的留存时间，会覆盖broker的最长时间参数</p><ul><li><p>retention.ms ： 消息保存最长时间</p></li><li><p>retention.bytes： 可以使用多大磁盘空间，默认-1，无限使用磁盘空间</p></li><li><p>max.message.bytes：同broker一样</p></li></ul><p>使用参数创建实例：<br><code>bin/kafka-topics.sh--bootstrap-serverlocalhost:9092--create--topictransaction--partitions1--replication-factor1--configretention.ms=15552000000--configmax.message.bytes=5242880</code></p><p>修改示例：<br><code>bin/kafka-configs.sh--zookeeperlocalhost:2181--entity-typetopics--entity-nametransaction--alter--add-configmax.message.bytes=10485760</code></p><hr><h2 id="JVM-参数"><a href="#JVM-参数" class="headerlink" title="JVM 参数"></a>JVM 参数</h2><ul><li>如果 Broker 所在机器的 CPU 资源非常充裕，建议使用 CMS 收集器。启用方法是指定-XX:+UseCurrentMarkSweepGC。</li><li>使用吞吐量收集器。开启方法是指定-XX:+UseParallelGC</li><li>已经在使用 Java 9 了，那么就用默认的 G1 收集器就好了。在没有任何调优的情况下，G1 表现得要比 CMS 出色，主要体现在更少的 Full GC，需要调整的参数更少等，所以使用 G1 就好了。</li></ul><p>注：需要再启动的时候指定</p><p>ulimit -n：随便往大了设置下，如果不设置，单机在Centos7上几百的并发就报“Too many open files”，如ulimit -n 1000000（任何一个 Java 项目最好都调整下这个值）</p>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h2 id=&quot;Broker-端参数&quot;&gt;&lt;a href=&quot;#Broker-端参数&quot; class=&quot;headerlink&quot; title=&quot;Broker 端参数&quot;&gt;&lt;/a&gt;Broker 端参数&lt;/h2&gt;&lt;p&gt;就是指的server.properties&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;</summary>
+      
+    
+    
+    
+    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
+    
+    
+    <category term="kafka" scheme="http://example.com/tags/kafka/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>kafka-1:简介</title>
+    <link href="http://example.com/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/"/>
+    <id>http://example.com/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/</id>
+    <published>2020-10-24T13:11:57.000Z</published>
+    <updated>2021-09-19T15:58:00.064Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="什么是kafka"><a href="#什么是kafka" class="headerlink" title="什么是kafka?"></a>什么是kafka?</h2><p>中间件？一个分布式流处理平台？消息队列？消息引擎系统？都是</p><h2 id="主题（Topic）"><a href="#主题（Topic）" class="headerlink" title="主题（Topic）"></a>主题（Topic）</h2><p>发布订阅的对象</p><p>每个业务、每个应用甚至是每类数据都创建专属的主题</p><p>向主题发布消息的客户端称为生产者<br>订阅主题消息的客户端应用程序就为消费者</p><p>一个 Kafka 集群由多个 <code>Broker</code> 组成，<code>Broker</code> 负责接收和处理客户端发送过来的请求，及对消息进行持久化。<br>常见的做法是将不同的 Broker 分散运行在不同的机器上，防止都在一台，服务器挂了就都废了</p><p>客户端 = 生产 + 消费<br>服务端 = <code>Broker</code> 服务进程， 一个 Kafka 集群由多个 <code>Broker</code> 组成</p><h2 id="副本"><a href="#副本" class="headerlink" title="副本"></a>副本</h2><p>相同的数据拷贝到多台机器上</p><p>领导者副本（Leader Replica）：对外提供服务<br>追随者副本（Follower Replica）：被动地追随领导者副本，<font color="red">不能与外界进行交互（不像mysql、redis等）</font>，向领导者副本发送请求，请求领导者把最新生产的消息发给它，这样它能保持与领导者的同步</p><ul><li>为什么不想mysql一样，追随者也可以对外提供读服务？</li></ul><p>如果允许follower副本对外提供读服务（主写从读），首先会存在<strong>数据一致性</strong>的问题，消息从主节点同步到从节点需要时间，可能造成主从节点的数据不一致。</p><p>主写从读无非就是为了减轻leader节点的压力，将读请求的负载均衡到follower节点，如果<strong>Kafka的分区相对均匀地分散到各个broker上，同样可以达到负载均衡的效果</strong></p><p>mysql一般部署在不同的机器上一台机器读写会遇到瓶颈，Kafka中的领导者副本一般均匀分布在不同的broker中，已经起到了负载的作用。即：同一个topic的已经通过分区的形式负载到不同的broker上了，读写的时候针对的领导者副本，但是量相比mysql一个还实例少太多，个人觉得没有必要在提供度读服务了。（如果量大还可以使用更多的副本，让每一个副本本身都不太大）</p><p>Kafka也<strong>不属于典型的读多写少场景</strong>，主从分离的优势不明显</p><ul><li>领导者副本积累了太多的数据，单台 Broker 机器都无法容纳怎么办？—伸缩性问题：分区</li></ul><h2 id="分区（Partition）"><a href="#分区（Partition）" class="headerlink" title="分区（Partition）"></a>分区（Partition）</h2><p>将每个主题划分成多个分区（Partition），每个分区是一组有序的消息日志。<br>生产者生产的每条消息只会被发送到一个分区中，也就是说如果向一个双分区的主题发送一条消息，这条消息要么在分区 0 中，要么在分区 1 中。<br>（副本是在分区这个层级定义的。每个分区下可以配置 1领导 + n 追随）</p><p>生产者向分区写入消息，每条消息在分区中的位置信息由一个叫位移（Offset）的数据来表征。分区位移总是从 0 开始</p><p>多个分区多个领导者，实现负载。</p><p>但是目前kafka设计多个分区的话无法保证全局的消息顺序。如果一定要实现全局的消息顺序，只能单分区</p><p>1个主题有2个分区，消费者组有3个消费者：有一个消费者将无法分配到任何分区，处于idle状态</p><p> Kafka 的三层消息架构：</p><ul><li>第一层是主题层，每个主题可以配置 M 个分区，而每个分区又可以配置 N 个副本。</li><li>第二层是分区层，每个分区的 N 个副本中只能有一个充当领导者角色，对外提供服务；其他 N-1 个副本是追随者副本，只是提供数据冗余之用。</li><li>第三层是消息层，分区中包含若干条消息，每条消息的位移从 0 开始，依次递增。</li><li>最后，客户端程序只能与分区的领导者副本进行交互。</li></ul><hr><h2 id="消息模型"><a href="#消息模型" class="headerlink" title="消息模型"></a>消息模型</h2><p>分为点对点和发布订阅<br>点对点主要就是消费者组实现（group）<br>消费者组：多个消费者实例(进程、线程)共同组成一个组来消费一组主题,这组主题中的每个分区都只会被组内的一个消费者实例消费，其他消费者实例不能消费它<br>提升消费者端的吞吐量。多个消费者实例同时消费，加速整个消费端的吞吐量<br>消费者组里面的所有消费者实例之间不但会竞争“消息资源”，还会彼此协作—重平衡（Rebalance）</p><p>重平衡（Rebalance）：组内某个实例挂掉了，Kafka自动检测到，把这个 Failed 实例之前负责的分区转移给其他活着的消费者</p><p>使用standalone consumer就完全避免rebalance了。事实上很多主流大数据流处理框架（Spark、Flink）都是这么使用的</p><h2 id="位移和消息位移"><a href="#位移和消息位移" class="headerlink" title="位移和消息位移"></a>位移和消息位移</h2><p>消费者位移（Consumer Offset）：每个消费者在消费消息的过程中必然需要有个字段记录它当前消费到了分区的哪个位置上</p><p>位移（Offset）：每条消息在分区中的位置信息</p><p>区别：<br>“位移”表征的是分区内的消息位置，它是不变的，即一旦消息被成功写入到一个分区上，它的位移值就是固定的了，针对的消息</p><p>“消费者位移”是随时变化的，毕竟它是消费者消费进度的指示器。另外每个消费者有着自己的消费者位移，消费完消息后使用一定策略更新自己的位移，针对的是消费者</p><p> <img src="/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/1.png" alt="1"></p><h2 id="日志"><a href="#日志" class="headerlink" title="日志"></a>日志</h2><p>消息日志保存数据，只能追加写，顺序I/O,不能随机I.O，保证了高吞吐量，<br>日志删除：为了避免日志堆积过多，提出日志段，旧的日志段写满了之后会再创建新的日志段，旧的日志段封存，定时任务扫描老的日志段是否能够删除</p><hr><h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><ul><li>mq和rpc调用的区别是什么呢?</li></ul><p>mq和rpc的区别往大了说属于数据流模式（dataflow mode）的问题。我们常见的数据流有三种：1. 通过数据库；2. 通过服务调用（REST/RPC）; 3. 通过异步消息传递（消息引擎，如Kafka）<br>RPC和MQ是有相似之处的，毕竟我们远程调用一个服务也可以看做是一个事件，但不同之处在于：</p><ol><li>MQ有自己的buffer，能够对抗过载（overloaded）和不可用场景</li><li>MQ支持重试</li><li>允许发布/订阅模式<br>当然它们还有其他区别。应该这样说RPC是介于通过数据库和通过MQ之间的数据流模式。</li></ol><ul><li>进程件通信的方式</li></ul><p>两个进程进行数据流交互的方式一般有三种：</p><ol><li>通过数据库：进程1写入数据库；进程2读取数据库（或者文件库）</li><li>通过服务调用：比如REST或RPC，而HTTP协议通常就作为REST方式的底层通讯协议</li><li>通过消息传递的方式：进程1发送消息给名为broker的中间件，然后进程2从该broker中读取消息。消息传输协议属于这种模式</li></ol><ul><li>为什么不直接通讯</li></ul><ol><li>削峰填谷：缓冲上下游瞬时突发流量，使其更平滑。特别是对于那种发送能力很强的上游系统，保护了下游</li><li>下游服务多，需要都发送吗？费劲，降低耦合，易扩展</li></ol><ul><li>Kafka 提供高可用有哪些手段</li></ul><ol><li>Broker 分散运行在不同的机器上，某台服务器所有 Broker 进程都挂掉了，其他机器上的 Broker 也依然能够对外提供服务</li><li>备份机制</li></ol><ul><li>java写的kafka为什么都是部署在linux上？</li></ul><ol><li>I/O: Kafka 客户端底层使用了 Java 的 selector，selector 在 Linux 上的实现机制是 epoll，而在 Windows 平台上的实现机制是 select,性能低</li><li>网络传输： Linux 部署 Kafka 能够享受到零拷贝技术所带来的快速数据传输特性。Windows 平台上必须要等到 Java 8 的 60 更新版本才行</li></ol><ul><li>需要固态硬盘吗？</li></ul><ol><li><p>多是顺序读写操作，一定程度上规避了机械磁盘最大的劣势，即随机读写操作慢。从这一点上来说，使用 SSD 似乎并没有太大的性能优势</p></li><li><p>使用磁盘阵列（RAID）：提供冗余的磁盘存储空间，提供负载均衡（但是kafka不太需要，自己就有高可用+负载均衡，有钱随便）</p><p><img src="/2020/10/24/kafka-1-%E7%AE%80%E4%BB%8B/1.png" alt="1"></p></li></ol>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h2 id=&quot;什么是kafka&quot;&gt;&lt;a href=&quot;#什么是kafka&quot; class=&quot;headerlink&quot; title=&quot;什么是kafka?&quot;&gt;&lt;/a&gt;什么是kafka?&lt;/h2&gt;&lt;p&gt;中间件？一个分布式流处理平台？消息队列？消息引擎系统？都是&lt;/p&gt;
+&lt;h2 id=&quot;主题</summary>
+      
+    
+    
+    
+    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
+    
+    
+    <category term="kafka" scheme="http://example.com/tags/kafka/"/>
+    
+  </entry>
   
   <entry>
     <title>redis13-慢redis总结</title>
@@ -185,6 +261,30 @@
   </entry>
   
   <entry>
+    <title>设计模式-原则</title>
+    <link href="http://example.com/2020/09/14/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%8E%9F%E5%88%99/"/>
+    <id>http://example.com/2020/09/14/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%8E%9F%E5%88%99/</id>
+    <published>2020-09-14T06:00:17.000Z</published>
+    <updated>2021-09-19T15:58:00.995Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="单一职责（SRP）"><a href="#单一职责（SRP）" class="headerlink" title="单一职责（SRP）"></a>单一职责（SRP）</h2><p><strong>一个类或者模块只负责完成一个职责</strong>，不要设计大而全的类，要设计粒度小、功能单一的类。换个角度来讲就是，一个类包含了两个或者两个以上业务不相干的功能，那我们就说它职责不够单一，应该将它拆分成多个功能更加单一、粒度更细的类。</p><h3 id="如何判断类的职责是否足够单一？"><a href="#如何判断类的职责是否足够单一？" class="headerlink" title="如何判断类的职责是否足够单一？"></a>如何判断类的职责是否足够单一？</h3><p>不同的应用场景、不同阶段的需求背景下，对同一个类的职责是否单一的判定，可能都是不一样的<br>比如业务简单就是要展示用户信息，所以省市区等字段都写到userinfo都没事<br>但是后面业务扩展多了电商物流等业务，可能就要把地址拆分成单独的，需求变了，单一的定义也就变了<br>虽然一开始就拆容易拓展但也有问题：一条数据库信息要创建多个类，如果数据库也拆了就要做多次数据库操作</p><p><strong>可以先写一个粗粒度的类，满足业务需求。随着业务的发展，如果粗粒度的类越来越庞大，代码越来越多，这个时候，我们就可以将这个粗粒度的类，拆分成几个更细粒度的类</strong>。这就是所谓的持续重构</p><p>判断单一的几条参考原则：</p><ol><li>类中的代码行数、函数或属性过多，会影响代码的可读性和可维护性，我们就需要考虑对类进行拆分</li><li>类依赖的其他类过多，或者依赖类的其他类过多，不符合高内聚、低耦合的设计思想，我们就需要考虑对类进行拆分</li><li>私有方法过多，我们就要考虑能否将私有方法独立到新的类中，设置为 public 方法，供更多的类使用，从而提高代码的复用性</li><li>比较难给类起一个合适名字，很难用一个业务名词概括，或者只能用一些笼统的 Manager、Context 之类的词语来命名，这就说明类的职责定义得可能不够清晰</li><li>类中大量的方法都是集中操作类中的某几个属性，比如，在 UserInfo 例子中，如果一半的方法都是在操作 address 信息，那就可以考虑将这几个属性和对应的方法拆分出来。</li></ol><h3 id="类的职责是否设计得越单一越好？"><a href="#类的职责是否设计得越单一越好？" class="headerlink" title="类的职责是否设计得越单一越好？"></a>类的职责是否设计得越单一越好？</h3><p>单一职责原则通过避免设计大而全的类，避免将不相关的功能耦合在一起，来提高类的内聚性。同时，类职责单一，类依赖的和被依赖的其他类也会变少，减少了代码的耦合性，以此来实现代码的高内聚、低耦合。但是，如果拆分得过细，实际上会适得其反，反倒会降低内聚性，也会影响代码的可维护性。</p><h2 id="开闭原则-OCP"><a href="#开闭原则-OCP" class="headerlink" title="开闭原则(OCP)"></a>开闭原则(OCP)</h2><p>怎样的代码改动才被定义为‘扩展’？<br>怎样的代码改动才被定义为‘修改’？<br>怎么才算满足或违反‘开闭原则’？<br>修改代码就一定意味着违反‘开闭原则’吗？”</p><p>扩展性是代码质量最重要的衡量标准之一。在 23 种经典设计模式中，大部分设计模式都是为了解决代码的扩展性问题而存在的，主要遵从的设计原则就是开闭原则！</p><h3 id="怎么理解开闭原则？"><a href="#怎么理解开闭原则？" class="headerlink" title="怎么理解开闭原则？"></a>怎么理解开闭原则？</h3><p>我写的你别改，要加功能自己整—添加一个新的功能应该是，在已有代码基础上扩展代码（新增模块、类、方法等），而非修改已有代码</p><h3 id="如何做到“对扩展开放、修改关闭”？"><a href="#如何做到“对扩展开放、修改关闭”？" class="headerlink" title="如何做到“对扩展开放、修改关闭”？"></a>如何做到“对扩展开放、修改关闭”？</h3><p>具备扩展意识、抽象意识、封装意识。在写代码的时候，我们要多花点时间思考一下，这段代码未来可能有哪些需求变更，如何设计代码结构，事先留好扩展点，以便在未来需求变更的时候，在不改动代码整体结构、做到最小代码改动的情况下，将新的代码灵活地插入到扩展点上。<br>很多设计原则、设计思想、设计模式，都是以提高代码的扩展性为最终目的的。特别是 23 种经典设计模式，大部分都是为了解决代码的扩展性问题而总结出来的，都是以开闭原则为指导原则的。<br>最常用来提高代码扩展性的方法有：<strong>多态、依赖注入、基于接口而非实现编程</strong>，以及大部分的设计模式（比如，装饰、策略、模板、职责链、状态）。</p><p>对拓展开放是为了应对变化(需求)，对修改关闭是为了保证已有代码的稳定性；最终结果是为了让系统更有弹性！不然新增功能可能老代码都要测试</p><p>现在公司代码反思：<br>入参出参全是map，和oop不沾边，虽然接口复制粘贴改动小，但是数据不明确,一行一行看实现才能看出具体代码，校验逻辑及其数据转换贼墨迹，尤其强转</p><h2 id="里式替换（LSP）"><a href="#里式替换（LSP）" class="headerlink" title="里式替换（LSP）"></a>里式替换（LSP）</h2><h3 id="如何理解“里式替换原则”？"><a href="#如何理解“里式替换原则”？" class="headerlink" title="如何理解“里式替换原则”？"></a>如何理解“里式替换原则”？</h3><p>子类对象能够替换父类对象出现的任何地方，并保证原有逻辑正确。</p><h3 id="哪些代码明显违背了-LSP？"><a href="#哪些代码明显违背了-LSP？" class="headerlink" title="哪些代码明显违背了 LSP？"></a>哪些代码明显违背了 LSP？</h3>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h2 id=&quot;单一职责（SRP）&quot;&gt;&lt;a href=&quot;#单一职责（SRP）&quot; class=&quot;headerlink&quot; title=&quot;单一职责（SRP）&quot;&gt;&lt;/a&gt;单一职责（SRP）&lt;/h2&gt;&lt;p&gt;&lt;strong&gt;一个类或者模块只负责完成一个职责&lt;/strong&gt;，不要设计大而全的</summary>
+      
+    
+    
+    
+    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
+    
+    
+    <category term="设计模式" scheme="http://example.com/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/"/>
+    
+  </entry>
+  
+  <entry>
     <title>redis6-哨兵</title>
     <link href="http://example.com/2020/09/14/redis6-%E5%93%A8%E5%85%B5/"/>
     <id>http://example.com/2020/09/14/redis6-%E5%93%A8%E5%85%B5/</id>
@@ -234,30 +334,6 @@
   </entry>
   
   <entry>
-    <title>redis4-RDB</title>
-    <link href="http://example.com/2020/09/09/redis4-RDB/"/>
-    <id>http://example.com/2020/09/09/redis4-RDB/</id>
-    <published>2020-09-09T04:23:19.000Z</published>
-    <updated>2021-09-14T07:52:24.696Z</updated>
-    
-    <content type="html"><![CDATA[<h1 id="RDB快照"><a href="#RDB快照" class="headerlink" title="RDB快照"></a>RDB快照</h1><p>AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响到正常使用</p><p>RDB内存快照：记录的是某一时刻的数据（<strong>全量数据</strong>）</p><p>save：在主线程中执行，会导致阻塞<br>bgsave：创建一个子进程，专门用于写入 RDB 文件（默认）</p><h2 id="创建RDB期间，redis还能提供写操作"><a href="#创建RDB期间，redis还能提供写操作" class="headerlink" title="创建RDB期间，redis还能提供写操作"></a>创建RDB期间，redis还能提供写操作</h2><p>Redis 借助操作系统提供的写时复制技术（Copy-On-Write, COW），在执行快照的同时，正常处理写操作。<br>bgsave 子进程是由主线程 fork 生成的，可以共享主线程的所有内存数据。bgsave 子进程运行后，开始读取主线程的内存数据，并把它们写入 RDB 文件。<br>主线程和 bgsave 子进程相互不影响。但是，如果主线程要修改一块数据，那么，这块数据就会被复制一份副本，主线程在副本上进行修改。同时，bgsave 子进程可以继续把原来的数据写入 RDB 文件。</p><p><img src="/2020/09/09/redis4-RDB/9.jpg" alt="导入"></p><h2 id="多久一次"><a href="#多久一次" class="headerlink" title="多久一次"></a>多久一次</h2><p>不能太频繁，多个快照写入竞争磁盘带宽，且fork过程会阻塞主线程<br>同时<br>Redis 中如果有一个 bgsave 在运行，就不会再启动第二个 bgsave 子进程（霸道）</p><h2 id="RDB风险"><a href="#RDB风险" class="headerlink" title="RDB风险"></a>RDB风险</h2><p>例如：2核CPU、4GB内存、500G磁盘，Redis实例占用2GB，写读比例为8:2，此时做RDB持久化，产生的风险主要在于 CPU资源 和 内存资源 这2方面：</p><p>a、内存资源风险：Redis fork子进程做RDB持久化，由于写的比例为80%，那么在持久化过程中，“写实复制”会重新分配整个实例80%的内存副本，大约需要重新分配1.6GB内存空间，这样整个系统的内存使用接近饱和，如果此时父进程又有大量新key写入，很快机器内存就会被吃光，如果机器开启了Swap机制，那么Redis会有一部分数据被换到磁盘上，当Redis访问这部分在磁盘上的数据时，性能会急剧下降，已经达不到高性能的标准（可以理解为武功被废）。如果机器没有开启Swap，会直接触发OOM，父子进程会面临被系统kill掉的风险。</p><p>b、CPU资源风险：虽然子进程在做RDB持久化，但生成RDB快照过程会消耗大量的CPU资源，虽然Redis处理处理请求是单线程的，但Redis Server还有其他线程在后台工作，例如AOF每秒刷盘、异步关闭文件描述符这些操作。由于机器只有2核CPU，这也就意味着父进程占用了超过一半的CPU资源，此时子进程做RDB持久化，可能会产生CPU竞争，导致的结果就是父进程处理请求延迟增大，子进程生成RDB快照的时间也会变长，整个Redis Server性能下降。</p><h2 id="增量快照"><a href="#增量快照" class="headerlink" title="增量快照"></a>增量快照</h2><p>全量之后只对修改过的数据进行记录<br>怎么记录—-AOF reids4.0 实现两种持久化的结合：一定频率执行RDB，两次RDB期间AOF</p><p>不用频繁forK rdb &amp;&amp;重写 进程，不用频繁重写AOF文件</p><h2 id="关于-AOF-和-RDB-的选择问题"><a href="#关于-AOF-和-RDB-的选择问题" class="headerlink" title="关于 AOF 和 RDB 的选择问题"></a>关于 AOF 和 RDB 的选择问题</h2><p>数据不能丢失时，内存快照和 AOF 的混合使用是一个很好的选择；<br>如果允许分钟级别的数据丢失，可以只使用 RDB；<br>如果只用 AOF，优先使用 everysec 的配置选项，因为它在可靠性和性能之间取了一个平衡。</p>]]></content>
-    
-    
-      
-      
-    <summary type="html">&lt;h1 id=&quot;RDB快照&quot;&gt;&lt;a href=&quot;#RDB快照&quot; class=&quot;headerlink&quot; title=&quot;RDB快照&quot;&gt;&lt;/a&gt;RDB快照&lt;/h1&gt;&lt;p&gt;AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响</summary>
-      
-    
-    
-    
-    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
-    
-    
-    <category term="redis" scheme="http://example.com/tags/redis/"/>
-    
-  </entry>
-  
-  <entry>
     <title>java一些基础巩固</title>
     <link href="http://example.com/2020/09/09/java%E4%B8%80%E4%BA%9B%E5%9F%BA%E7%A1%80%E5%B7%A9%E5%9B%BA/"/>
     <id>http://example.com/2020/09/09/java%E4%B8%80%E4%BA%9B%E5%9F%BA%E7%A1%80%E5%B7%A9%E5%9B%BA/</id>
@@ -278,6 +354,30 @@
     
     
     <category term="Java" scheme="http://example.com/tags/Java/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>redis4-RDB</title>
+    <link href="http://example.com/2020/09/09/redis4-RDB/"/>
+    <id>http://example.com/2020/09/09/redis4-RDB/</id>
+    <published>2020-09-09T04:23:19.000Z</published>
+    <updated>2021-09-14T07:52:24.696Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="RDB快照"><a href="#RDB快照" class="headerlink" title="RDB快照"></a>RDB快照</h1><p>AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响到正常使用</p><p>RDB内存快照：记录的是某一时刻的数据（<strong>全量数据</strong>）</p><p>save：在主线程中执行，会导致阻塞<br>bgsave：创建一个子进程，专门用于写入 RDB 文件（默认）</p><h2 id="创建RDB期间，redis还能提供写操作"><a href="#创建RDB期间，redis还能提供写操作" class="headerlink" title="创建RDB期间，redis还能提供写操作"></a>创建RDB期间，redis还能提供写操作</h2><p>Redis 借助操作系统提供的写时复制技术（Copy-On-Write, COW），在执行快照的同时，正常处理写操作。<br>bgsave 子进程是由主线程 fork 生成的，可以共享主线程的所有内存数据。bgsave 子进程运行后，开始读取主线程的内存数据，并把它们写入 RDB 文件。<br>主线程和 bgsave 子进程相互不影响。但是，如果主线程要修改一块数据，那么，这块数据就会被复制一份副本，主线程在副本上进行修改。同时，bgsave 子进程可以继续把原来的数据写入 RDB 文件。</p><p><img src="/2020/09/09/redis4-RDB/9.jpg" alt="导入"></p><h2 id="多久一次"><a href="#多久一次" class="headerlink" title="多久一次"></a>多久一次</h2><p>不能太频繁，多个快照写入竞争磁盘带宽，且fork过程会阻塞主线程<br>同时<br>Redis 中如果有一个 bgsave 在运行，就不会再启动第二个 bgsave 子进程（霸道）</p><h2 id="RDB风险"><a href="#RDB风险" class="headerlink" title="RDB风险"></a>RDB风险</h2><p>例如：2核CPU、4GB内存、500G磁盘，Redis实例占用2GB，写读比例为8:2，此时做RDB持久化，产生的风险主要在于 CPU资源 和 内存资源 这2方面：</p><p>a、内存资源风险：Redis fork子进程做RDB持久化，由于写的比例为80%，那么在持久化过程中，“写实复制”会重新分配整个实例80%的内存副本，大约需要重新分配1.6GB内存空间，这样整个系统的内存使用接近饱和，如果此时父进程又有大量新key写入，很快机器内存就会被吃光，如果机器开启了Swap机制，那么Redis会有一部分数据被换到磁盘上，当Redis访问这部分在磁盘上的数据时，性能会急剧下降，已经达不到高性能的标准（可以理解为武功被废）。如果机器没有开启Swap，会直接触发OOM，父子进程会面临被系统kill掉的风险。</p><p>b、CPU资源风险：虽然子进程在做RDB持久化，但生成RDB快照过程会消耗大量的CPU资源，虽然Redis处理处理请求是单线程的，但Redis Server还有其他线程在后台工作，例如AOF每秒刷盘、异步关闭文件描述符这些操作。由于机器只有2核CPU，这也就意味着父进程占用了超过一半的CPU资源，此时子进程做RDB持久化，可能会产生CPU竞争，导致的结果就是父进程处理请求延迟增大，子进程生成RDB快照的时间也会变长，整个Redis Server性能下降。</p><h2 id="增量快照"><a href="#增量快照" class="headerlink" title="增量快照"></a>增量快照</h2><p>全量之后只对修改过的数据进行记录<br>怎么记录—-AOF reids4.0 实现两种持久化的结合：一定频率执行RDB，两次RDB期间AOF</p><p>不用频繁forK rdb &amp;&amp;重写 进程，不用频繁重写AOF文件</p><h2 id="关于-AOF-和-RDB-的选择问题"><a href="#关于-AOF-和-RDB-的选择问题" class="headerlink" title="关于 AOF 和 RDB 的选择问题"></a>关于 AOF 和 RDB 的选择问题</h2><p>数据不能丢失时，内存快照和 AOF 的混合使用是一个很好的选择；<br>如果允许分钟级别的数据丢失，可以只使用 RDB；<br>如果只用 AOF，优先使用 everysec 的配置选项，因为它在可靠性和性能之间取了一个平衡。</p>]]></content>
+    
+    
+      
+      
+    <summary type="html">&lt;h1 id=&quot;RDB快照&quot;&gt;&lt;a href=&quot;#RDB快照&quot; class=&quot;headerlink&quot; title=&quot;RDB快照&quot;&gt;&lt;/a&gt;RDB快照&lt;/h1&gt;&lt;p&gt;AOF 方法进行故障恢复的时候，需要逐一把操作日志都执行一遍。如果操作日志非常多，Redis 就会恢复得很缓慢，影响</summary>
+      
+    
+    
+    
+    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
+    
+    
+    <category term="redis" scheme="http://example.com/tags/redis/"/>
     
   </entry>
   
@@ -391,109 +491,6 @@
       
       
     <summary type="html">&lt;h2 id=&quot;1-缓存和数据库双写一致性问题&quot;&gt;&lt;a href=&quot;#1-缓存和数据库双写一致性问题&quot; class=&quot;headerlink&quot; title=&quot;1.缓存和数据库双写一致性问题&quot;&gt;&lt;/a&gt;1.缓存和数据库双写一致性问题&lt;/h2&gt;&lt;p&gt;一致性问题是分布式常见问题，还可以再</summary>
-      
-    
-    
-    
-    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
-    
-    
-    <category term="redis" scheme="http://example.com/tags/redis/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>有意思-2异位词分组与质数</title>
-    <link href="http://example.com/2020/06/01/%E6%9C%89%E6%84%8F%E6%80%9D-2%E5%BC%82%E4%BD%8D%E8%AF%8D%E5%88%86%E7%BB%84%E4%B8%8E%E8%B4%A8%E6%95%B0/"/>
-    <id>http://example.com/2020/06/01/%E6%9C%89%E6%84%8F%E6%80%9D-2%E5%BC%82%E4%BD%8D%E8%AF%8D%E5%88%86%E7%BB%84%E4%B8%8E%E8%B4%A8%E6%95%B0/</id>
-    <published>2020-06-01T04:15:52.000Z</published>
-    <updated>2021-03-04T04:43:20.667Z</updated>
-    
-    <content type="html"><![CDATA[<p>给定一个字符串数组，将字母异位词组合在一起。字母异位词指字母相同，但排列不同的字符串。<br>示例:<br>输入:<code> [&quot;eat&quot;, &quot;tea&quot;, &quot;tan&quot;, &quot;ate&quot;, &quot;nat&quot;, &quot;bat&quot;]</code><br>输出:</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[</span><br><span class="line">  [&quot;ate&quot;,&quot;eat&quot;,&quot;tea&quot;],</span><br><span class="line">  [&quot;nat&quot;,&quot;tan&quot;],</span><br><span class="line">  [&quot;bat&quot;]</span><br><span class="line">]</span><br></pre></td></tr></table></figure><p>解题思路<br>算术基本定理<br>**任何一个大于1的自然数N，如果N不为质数，那么N可以唯一分解成有限个质数的乘积  !  !  !  !**牛逼<br>[a, z]Unicode编码 - 97=[0, 25] 对应26个质数,或者减’a’。每字母代表一个质数,质数的乘积表示字符串<br>乘法交换律忽略字母顺序。算术基本定理保证不同质数 或 相同质数不同个数，乘积唯一</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">public static List&lt;List&lt;String&gt;&gt; groupAnagrams(String[] strs) &#123;</span><br><span class="line">Map&lt;String, List&lt;String&gt;&gt; map = new HashMap&lt;String, List&lt;String&gt;&gt;();</span><br><span class="line">int[] prime = new int[] &#123; 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79,</span><br><span class="line">83, 89, 97, 101 &#125;;  //26个质数</span><br><span class="line"><span class="keyword">for</span> (int i = 0; i &lt; strs.length; i++) &#123;</span><br><span class="line">long sum = 1;  //因为乘积怕太大了就用long</span><br><span class="line"><span class="keyword">for</span> (int j = 0; j &lt; strs[i].length(); j++) &#123;</span><br><span class="line">sum *= prime[strs[i].charAt(j) - <span class="string">&#x27;a&#x27;</span>];</span><br><span class="line">&#125;</span><br><span class="line">List&lt;String&gt; list = map.getOrDefault(sum + <span class="string">&quot;&quot;</span>, new ArrayList&lt;String&gt;()); //根据key去list,如果没有新建</span><br><span class="line">list.add(strs[i]);</span><br><span class="line">map.put(sum + <span class="string">&quot;&quot;</span>, list);</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">return</span> new ArrayList&lt;List&lt;String&gt;&gt;(map.values());</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure><p>其他解法:</p><ul><li><p>暴力:</p><p>所有字符串都排序,排完了放到map<br>key是排序后的字符串,value是放之前的string集合…<br>class Solution {<br>  public List&lt;List<String>&gt; groupAnagrams(String[] strs) {</String></p><pre><code>  Map&lt;String, List&lt;String&gt;&gt; map = new HashMap&lt;String, List&lt;String&gt;&gt;();  for (String str : strs) &#123;      char[] array = str.toCharArray();      Arrays.sort(array);      String key = new String(array);      List&lt;String&gt; list = map.getOrDefault(key, new ArrayList&lt;String&gt;());      list.add(str);      map.put(key, list);  &#125;  return new ArrayList&lt;List&lt;String&gt;&gt;(map.values());</code></pre><p>  }<br>}</p></li></ul><p>时间复杂度：O(nk log k)，其中 n 是strs 中的字符串的数量，k 是 strs 中的字符串的的最大长度。<br>空间复杂度：O(nk)，其中 n 是 strs 中的字符串的数量，k 是 strs 中的字符串的的最大长度。需要用哈希表存储全部字符串。</p><ul><li>计数</li></ul><p>两个字符串中的相同字母出现的次数一定是相同的，故可以将每个字母出现的次数使用字符串表示，作为哈希表的键。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">class Solution &#123;</span><br><span class="line">    public List&lt;List&lt;String&gt;&gt; groupAnagrams(String[] strs) &#123;</span><br><span class="line">Map&lt;String, List&lt;String&gt;&gt; map = new HashMap&lt;String, List&lt;String&gt;&gt;();</span><br><span class="line"><span class="keyword">for</span> (String str : strs) &#123;</span><br><span class="line">int[] counts = new int[26];</span><br><span class="line">int length = str.length();</span><br><span class="line"><span class="keyword">for</span> (int i = 0; i &lt; length; i++) &#123;</span><br><span class="line">counts[str.charAt(i) - <span class="string">&#x27;a&#x27;</span>]++; //字符串遍历,每个字符出现一次就在对应位置加一</span><br><span class="line">&#125;</span><br><span class="line">// 将每个出现次数大于 0 的字母和出现次数按顺序拼接成字符串，作为哈希表的键</span><br><span class="line">StringBuffer sb = new StringBuffer();</span><br><span class="line"><span class="keyword">for</span> (int i = 0; i &lt; 26; i++) &#123;</span><br><span class="line"><span class="keyword">if</span> (counts[i] != 0) &#123;</span><br><span class="line">sb.append((char) (<span class="string">&#x27;a&#x27;</span> + i));  //如果这个位置有字母,记录当前这个位置对应的字母</span><br><span class="line">sb.append(counts[i]);       //counts[i]  这个字母在字符串出现的次数,sb就成了 :l2i1n1g1这种</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">String key = sb.toString();</span><br><span class="line">List&lt;String&gt; list = map.getOrDefault(key, new ArrayList&lt;String&gt;());</span><br><span class="line">list.add(str);</span><br><span class="line">map.put(key, list);</span><br><span class="line">&#125;</span><br><span class="line">    <span class="built_in">return</span> new ArrayList&lt;List&lt;String&gt;&gt;(map.values());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
-    
-    
-      
-      
-    <summary type="html">&lt;p&gt;给定一个字符串数组，将字母异位词组合在一起。字母异位词指字母相同，但排列不同的字符串。&lt;br&gt;示例:&lt;br&gt;输入:&lt;code&gt; [&amp;quot;eat&amp;quot;, &amp;quot;tea&amp;quot;, &amp;quot;tan&amp;quot;, &amp;quot;ate&amp;quot;, &amp;quo</summary>
-      
-    
-    
-    
-    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
-    
-    
-    <category term="算法" scheme="http://example.com/tags/%E7%AE%97%E6%B3%95/"/>
-    
-    <category term="leetcode" scheme="http://example.com/tags/leetcode/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>有意思-0两数交换与异或</title>
-    <link href="http://example.com/2020/05/25/%E6%9C%89%E6%84%8F%E6%80%9D-0%E4%B8%A4%E6%95%B0%E4%BA%A4%E6%8D%A2%E4%B8%8E%E5%BC%82%E6%88%96/"/>
-    <id>http://example.com/2020/05/25/%E6%9C%89%E6%84%8F%E6%80%9D-0%E4%B8%A4%E6%95%B0%E4%BA%A4%E6%8D%A2%E4%B8%8E%E5%BC%82%E6%88%96/</id>
-    <published>2020-05-25T03:16:09.000Z</published>
-    <updated>2021-03-04T04:40:40.400Z</updated>
-    
-    <content type="html"><![CDATA[<h1 id="两数交换不借助第三数"><a href="#两数交换不借助第三数" class="headerlink" title="两数交换不借助第三数"></a>两数交换不借助第三数</h1><p>利用数学计算mdzz……</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public void swapTwo()&#123;</span><br><span class="line">    int a &#x3D; 4;</span><br><span class="line">    int b &#x3D; 5;</span><br><span class="line">    a&#x3D;a+b;</span><br><span class="line">    b&#x3D;a-b;</span><br><span class="line">    a&#x3D;a-b;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure><p>利用异或运算我是智障</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">public void <span class="function"><span class="title">swapThree</span></span>()&#123;</span><br><span class="line">        int a = 4;</span><br><span class="line">        int b = 5;</span><br><span class="line">        a = a ^ b; // 0101 ^ 0100 ===&gt; 0001，此时a的值为1</span><br><span class="line">        b = a ^ b; // 0001 ^ 0100 ===&gt; 0101，此时b的值为5</span><br><span class="line">        a = a ^ b; // 0001 ^ 0101 ===&gt; 0100，此时a的值为4</span><br><span class="line">        System.out.println(<span class="string">&quot;a:&quot;</span>+a); //a:5</span><br><span class="line">        System.out.println(<span class="string">&quot;b:&quot;</span>+b); //a:4</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure><p>其他的异或</p><h1 id="二进制中1的个数"><a href="#二进制中1的个数" class="headerlink" title="二进制中1的个数"></a>二进制中1的个数</h1><p>请实现一个函数，输入一个整数，输出该数二进制表示中 1 的个数。例如，把 9 表示成二进制是 1001，有 2 位是 1。因此，如果输入 9，则该函数输出 2。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public class Solution &#123;</span><br><span class="line">    public int hammingWeight(int n) &#123;</span><br><span class="line">      int count = 0;</span><br><span class="line">      <span class="keyword">for</span>(int i=0;i&lt;32;i++)&#123;</span><br><span class="line">          <span class="keyword">if</span>((n&amp;1)==1) count++;</span><br><span class="line">          n = n&gt;&gt;1;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="built_in">return</span> count;</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure><h1 id="数值的整数次方"><a href="#数值的整数次方" class="headerlink" title="数值的整数次方"></a>数值的整数次方</h1><p>实现函数<code>double Power(double base, int exponent)</code>，求base的exponent次方。不得使用库函数，同时不需要考虑大数问题。<br>输入: 2.00000, 10<br>输出: 1024.00000</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">class Solution &#123;</span><br><span class="line">    public double myPow(double x, int n) &#123;</span><br><span class="line">       <span class="keyword">if</span>(n == 0) <span class="built_in">return</span> 1;</span><br><span class="line">       <span class="keyword">if</span>(n == 1) <span class="built_in">return</span> x;</span><br><span class="line">       <span class="keyword">if</span>(n == -1) <span class="built_in">return</span> 1/x;</span><br><span class="line">       long m = n;</span><br><span class="line">       <span class="keyword">if</span>(n&lt;0)&#123;</span><br><span class="line">           x=1/x;</span><br><span class="line">           m = -m;</span><br><span class="line">       &#125;</span><br><span class="line">       Double num = 1.0;</span><br><span class="line">       <span class="keyword">while</span>(m&gt;0)&#123;</span><br><span class="line">           <span class="keyword">if</span>((m&amp;1) == 1) num*=x;</span><br><span class="line">           m = m&gt;&gt;1;</span><br><span class="line">           x*=x;</span><br><span class="line">       &#125;</span><br><span class="line">       <span class="built_in">return</span> num;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
-    
-    
-      
-      
-    <summary type="html">&lt;h1 id=&quot;两数交换不借助第三数&quot;&gt;&lt;a href=&quot;#两数交换不借助第三数&quot; class=&quot;headerlink&quot; title=&quot;两数交换不借助第三数&quot;&gt;&lt;/a&gt;两数交换不借助第三数&lt;/h1&gt;&lt;p&gt;利用数学计算mdzz……&lt;/p&gt;
-&lt;figure class=&quot;highli</summary>
-      
-    
-    
-    
-    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
-    
-    
-    <category term="算法" scheme="http://example.com/tags/%E7%AE%97%E6%B3%95/"/>
-    
-    <category term="leetcode" scheme="http://example.com/tags/leetcode/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>有意思-1剪绳子与数论</title>
-    <link href="http://example.com/2020/05/14/%E6%9C%89%E6%84%8F%E6%80%9D-1%E5%89%AA%E7%BB%B3%E5%AD%90%E4%B8%8E%E6%95%B0%E8%AE%BA/"/>
-    <id>http://example.com/2020/05/14/%E6%9C%89%E6%84%8F%E6%80%9D-1%E5%89%AA%E7%BB%B3%E5%AD%90%E4%B8%8E%E6%95%B0%E8%AE%BA/</id>
-    <published>2020-05-14T04:15:26.000Z</published>
-    <updated>2021-03-04T04:40:10.162Z</updated>
-    
-    <content type="html"><![CDATA[<h1 id="剪绳子"><a href="#剪绳子" class="headerlink" title="剪绳子"></a>剪绳子</h1><p>给你一根长度为 n 的绳子，请把绳子剪成整数长度的 m 段（m、n都是整数，n&gt;1并且m&gt;1），每段绳子的长度记为 <code>k[0],k[1]...k[m-1] 。请问 k[0]*k[1]*...*k[m-1] </code>可能的<strong>最大乘积</strong>是多少？例如，当绳子的长度是8时，我们把它剪成长度分别为2、3、3的三段，此时得到的最大乘积是18。<br>输入: 10<br>输出: 36<br>解释: 10 = 3 + 3 + 4, 3 × 3 × 4 = 36</p><ul><li>数论</li></ul><p><strong>任何大于1的数都可由2和3相加组成</strong>（根据奇偶证明）<br>因为<code>2*2=1*4</code>，<code>2*3&gt;1*5</code>, 所以将数字拆成2和3，能得到的积最大<br>因为2<em>2</em>2&lt;3*3, **所以3越多积越大 时间复杂度O(n/3)**，用幂函数可以达到O(log(n/3)), 因为n不大，所以提升意义不大，我就没用。 空间复杂度常数复杂度O(1)</p><p>简单的数论题，<strong>DP并不是最优解，套用DP谁都会，而数论时间复杂度空间复杂度都远胜DP</strong><br>如果 n == 2，返回1，如果 n == 3，返回2，两个可以合并成n小于4的时候返回n - 1<br>如果 n == 4，返回4<br>如果 n &gt; 4，分成尽可能多的长度为3的小段，每次循环长度n减去3，乘积res乘以3；最后返回时乘以小于等于4的最后一小段<br>以上2和3可以合并</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">class Solution &#123;</span><br><span class="line">    public int cuttingRope(int n) &#123;</span><br><span class="line">        if(n&#x3D;&#x3D;1 || n&#x3D;&#x3D;2)</span><br><span class="line">            return 1;</span><br><span class="line">        if(n&#x3D;&#x3D;3)</span><br><span class="line">            return 2;</span><br><span class="line">        int num &#x3D; 1;</span><br><span class="line">        while(n&gt;4)&#123;</span><br><span class="line">            num*&#x3D;3;</span><br><span class="line">            n-&#x3D;3;</span><br><span class="line">        &#125;</span><br><span class="line">        return num*n;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><ul><li>卑微的动归<br>用一个dp数组记录从0到n长度的绳子剪掉后的最大乘积，也就是dp[i]表示长度为i的绳子剪成m段后的最大乘积，初始化dp[2] = 1<br>我们先把绳子剪掉第一段（长度为j），只剪掉长度为1，乘积没用，所以从长度为2开始剪<br>剪了第一段后，剩下<code>(i - j)</code>长度可以剪也可以不剪。如果不剪的话长度乘积即为<code>j * (i - j)</code>；<br>如果剪的话长度乘积即为<code>j * dp[i - j]</code>。取两者最大值<code>max(j * (i - j), j * dp[i - j])</code><br>第一段长度j可以取的区间为[2,i)，对所有j不同的情况取最大值，因此最终dp[i]的转移方程为<br><code>dp[i] = max(dp[i], max(j * (i - j), j * dp[i - j]))</code><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">class Solution &#123;</span><br><span class="line">    public int cuttingRope(int n) &#123;</span><br><span class="line">        int[] dp = new int[n + 1];</span><br><span class="line">        dp[2] = 1;</span><br><span class="line">        <span class="keyword">for</span>(int i = 3; i &lt; n + 1; i++)&#123;</span><br><span class="line">            <span class="keyword">for</span>(int j = 2; j &lt; i; j++)&#123;</span><br><span class="line">                dp[i] = Math.max(dp[i], Math.max(j * (i - j), j * dp[i - j]));</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">return</span> dp[n];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li></ul>]]></content>
-    
-    
-      
-      
-    <summary type="html">&lt;h1 id=&quot;剪绳子&quot;&gt;&lt;a href=&quot;#剪绳子&quot; class=&quot;headerlink&quot; title=&quot;剪绳子&quot;&gt;&lt;/a&gt;剪绳子&lt;/h1&gt;&lt;p&gt;给你一根长度为 n 的绳子，请把绳子剪成整数长度的 m 段（m、n都是整数，n&amp;gt;1并且m&amp;gt;1），每段绳子的长度记为 &lt;c</summary>
-      
-    
-    
-    
-    <category term="正经事" scheme="http://example.com/categories/%E6%AD%A3%E7%BB%8F%E4%BA%8B/"/>
-    
-    
-    <category term="算法" scheme="http://example.com/tags/%E7%AE%97%E6%B3%95/"/>
-    
-    <category term="leetcode" scheme="http://example.com/tags/leetcode/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>redis-3.持久化,集群模式</title>
-    <link href="http://example.com/2020/05/13/redis-3-%E6%8C%81%E4%B9%85%E5%8C%96-%E9%9B%86%E7%BE%A4%E6%A8%A1%E5%BC%8F/"/>
-    <id>http://example.com/2020/05/13/redis-3-%E6%8C%81%E4%B9%85%E5%8C%96-%E9%9B%86%E7%BE%A4%E6%A8%A1%E5%BC%8F/</id>
-    <published>2020-05-13T14:11:12.000Z</published>
-    <updated>2021-03-04T04:01:20.939Z</updated>
-    
-    <content type="html"><![CDATA[<h1 id="一-持久化"><a href="#一-持久化" class="headerlink" title="一.持久化"></a>一.持久化</h1><p>Redis的所有数据都是保存在内存中，redis崩掉的话，会丢失。Redis持久化就是把数据保存到磁盘上（可永久保存的存储设备中），以便数据恢复。</p><h2 id="1-RDB-快照（snapshot）"><a href="#1-RDB-快照（snapshot）" class="headerlink" title="1.RDB 快照（snapshot）"></a>1.RDB 快照（snapshot）</h2><p><strong>将存在于某一时刻的所有数据都写入到硬盘中。</strong></p><ol><li>原理:</li></ol><p><strong>RDB是Redis默认的持久化方案</strong>。<strong>在指定的时间间隔内，执行指定次数的写操作，则会将内存中的数据写入到磁盘中，即在指定目录下生成一个</strong><code>dump.rdb</code><strong>文件</strong>，<strong>Redis重启会通过加载</strong><code>dump.rdb</code><strong>文件恢复数据</strong><br>可以对 Redis 进行设置， “N 秒内至少有 M 个改动”时， 自动保存。(配置:save n m,多个条件时满足一个就会执行BGSAVE—&gt;Redis的服务器周期性操作函数<code>serverCron</code>默认<strong>每隔100毫秒就会执行一次</strong>)<br>你也可以通过调用 <code>SAVE</code> 或者 <code>BGSAVE</code>，手动让 Redis 进行数据集保存操作。<br>这种持久化方式被称为快照。该功能可以将某个时间点上的数据库状态保存到一个RDB文件中</p><ol start="2"><li><p>创建:<br><code>SAVE</code>命令:    会<strong>阻塞</strong>Redis服务器进程，直到RDB文件创建完毕为止，在服务器进程阻塞期间，<strong>服务器不能处理任何命令请求</strong><br><code>BGSAVE</code>命令:        会派生出一个<strong>子进程</strong>，然后由子进程负责创建RDB文件，服务器进程继续处理命令请求(SAVE、BGSAVE除外,这俩会被拒绝)</p></li><li><p>载入:<br>Redis并没有专门用于载入RDB文件的命令，只要Redis服务器在启动时检测到RDB文件存在，它就会自动载入RDB文件</p></li></ol><p><strong>服务器在载入RDB文件期间，会一直处于阻塞状态，直到载入工作完成为止</strong><br>创建RDB文件的实际工作由<code>rdb.c/rdbSave</code>函数完成，载入RDB文件的实际工作由<code>rdb.c/rdbLoad</code>函数完成</p><p>当 Redis 需要保存 dump.rdb 文件时， 服务器执行以下操作:</p><ul><li>Redis 创建一个子进程。</li><li>子进程将数据集写入到一个临时快照文件中。</li><li>当子进程完成对新快照文件的写入时，Redis 用新快照文件替换原来的快照文件，并删除旧的快照文件。<br>这种工作方式使得 Redis 可以从写时复制（copy-on-write）机制中获益。</li></ul><ol start="4"><li>优点:<br>它保存了某个时间点的数据集，非常<strong>适用于数据集的备份</strong>。<br>很方便传送到另一个远端数据中心或者亚马逊的 S3（可能加密），<strong>非常适用于灾难恢复</strong>。<br>快照在保存 RDB 文件时父进程唯一需要做的就是 fork 出一个子进程，接下来的工作全部由子进程来做，父进程不需要再做其他 IO 操作，所以快照持久化方式可以最大化 redis 的性能。</li></ol><p><strong>与 AOF 相比，在恢复大的数据集的时候，DB 方式会更快一些。</strong></p><ol start="5"><li>缺点:<br>如果你希望在 redis 意外停止工作（例如电源中断）的情况下丢失的数据最少的话，那么快照不适合你。<br>快照需要经常 fork 子进程来保存数据集到硬盘上。当数据集比较大的时候，<strong>fork 的过程是非常耗时的</strong>，可能会导致 Redis 在一些毫秒级内不能响应客户端的请求。</li></ol><hr><h2 id="2-AOF"><a href="#2-AOF" class="headerlink" title="2.AOF"></a>2.AOF</h2><p><strong>将Redis执行过的所有指令记录下来</strong>（读操作不记录），<strong>只许追加文件，但不可以改写文件，redis启动之初会读取该文件重新构建数据</strong>(默认关闭)</p><ol><li><p>原理:<br>a. 打开AOF:appendonly  YES<br>b. Redis 创建一个子进程。<br>c. 子进程开始将新 AOF 文件的内容写入到临时文件。<br>d. 对于所有新执行的写入命令，父进程一边将它们累积到一个内存缓存中，一边将这些改动追加到现有 AOF 文件的末尾，这样样即使在重写的中途发生停机，现有的 AOF 文件也还是安全的。<br>e. 当子进程完成重写工作时，它给父进程发送一个信号，父进程在接收到信号之后，将内存缓存中的所有数据追加到新 AOF 文件的末尾。<br>f. 原子地用新文件替换旧文件，之后所有命令都会直接追加到新 AOF 文件的末尾。</p></li><li><p>AOF文件的载入与数据还原:<br>1）创建一个不带网络连接的伪客户端：因为Redis的命令只能在客户端上下文中执行，而载入AOF文件时所使用的命令直接来源于AOF文件而不是网络连接，所以服务器使用了一个没有网络连接的伪客户端来执行AOF文件保存的写命令，伪客户端执行命令的效果和带网络连接的客户端执行命令的效果完全一样<br>2）从AOF文件中分析并读取出一条写命令<br>3）使用伪客户端执行被读出的写命令<br>4）一直执行步骤2和步骤3，直到AOF文件中的所有写命令都被处理完毕为止</p></li><li><p>优点:<br>使用默认的每秒 <code>fsync</code> 策略，Redis 的性能依然很好(<code>fsync</code> 是由后台线程进行处理的,主线程会尽力处理客户端请求)，一旦出现故障，使用 AOF ，你最多丢失 1 秒的数据。<br>AOF 文件是一个只进行追加的日志文件，所以不需要写入 seek，即使由于某些原因(磁盘空间已满，写的过程中宕机等等)未执行完整的写入命令，你也也可使用 <code>redis-check-aof </code>工具修复这些问题。<br>Redis 可以在 AOF 文件体积变得过大时，自动地在后台对 AOF 进行重写：<strong>重写后的新 AOF 文件包含了恢复当前数据集所需的最小命令集合。整个重写操作是绝对安全的</strong>。<br>AOF 文件有序地保存了对数据库执行的所有写入操作，这些写入操作以 Redis 协议的格式保存。因此 AOF 文件的内容非常容易被人读懂，对文件进行分析（parse）也很轻松。</p></li><li><p>缺点:<br>对于相同的数据集来说，<strong>AOF 文件的体积通常要大于 RDB 文件的体积</strong>。<br>根据所使用的 <code>fsync</code> 策略，<strong>AOF 的速度可能会慢于快照</strong>。在一般情况下，每秒 <code>fsync</code> 的性能依然非常高，而关闭 <code>fsync</code> 可以让** AOF 的速度和快照一样快<strong>，即使在高负荷之下也是如此。不过在处理巨大的写入载入时，</strong>快照可以提供更有保证的最大延迟时间**（latency）。</p></li></ol><p><strong>因为AOF文件的更新频率通常比RDB文件的更新频率高</strong>，所以：<br><strong>如果服务器开启了AOF持久化功能，那么服务器会优先使用AOF文件来还原数据库状态</strong><br><strong>只有在AOF持久化功能处于关闭状态时，服务器才会使用RDB文件来还原数据库状态</strong><br><img src="/2020/05/13/redis-3-%E6%8C%81%E4%B9%85%E5%8C%96-%E9%9B%86%E7%BE%A4%E6%A8%A1%E5%BC%8F/1.png" alt="1"></p><hr><h1 id="redis三种搭建模式"><a href="#redis三种搭建模式" class="headerlink" title="redis三种搭建模式"></a>redis三种搭建模式</h1><h2 id="一-主从"><a href="#一-主从" class="headerlink" title="一.主从"></a>一.主从</h2><ol><li><p><strong>主从复制过程</strong>:<br>从服务器连接主服务器，发送 <code>SYNC</code> 命令；<br>主服务器接收到 <code>SYNC</code> 命名后，开始执行 <code>BGSAVE</code> 命令生成 RDB 文件并使用缓冲区记录此后执行的所有写命令；<br>主服务器 <code>BGSAVE</code> 执行完后，向所有从服务器发送快照文件，并在发送期间继续记录被执行的写命令；<br>从服务器收到快照文件后丢弃所有旧数据，载入收到的快照；<br>主服务器快照发送完毕后开始向从服务器发送缓冲区中的写命令；<br>从服务器完成对快照的载入，开始接收命令请求，并执行来自主服务器缓冲区的写命令；<br>果Master和Slave之间的链接出现断连现象，Slave可以自动重连Master，但是在<strong>连接成功之后，一次完全同步将被自动执行</strong></p></li><li><p><strong>优点</strong><br>1、同一个Master可以同步多个Slaves。<br>2、Slave同样可以接受其它Slaves的连接和同步请求，这样可以有效的分载Master的同步压力(<strong>图结构</strong>)<br>3、<strong>Slave可以设置只读服务器</strong>，写服务仍然必须由Master来完成。<br>6、Master可以将<strong>数据保存操作交给Slaves完成</strong>，从而避免了在Master中要有独立的进程来完成此操作。<br>7、支持主从复制，主机会自动将数据同步到从机，可以进行<strong>读写分离</strong>。</p></li><li><p><strong>缺点</strong>:<br>1、不具备<strong>自动容错和恢复功能</strong>，主机从机的宕机都会导致前端部分读写请求失败<br>2、需要<strong>手动主从切换</strong><br>3、主从切换后还会有<strong>数据不一致的问题</strong>(部分数据从服务器未同步)<br>4、较难支持<strong>在线扩容</strong></p></li></ol><h2 id="二-哨兵"><a href="#二-哨兵" class="headerlink" title="二.哨兵"></a>二.哨兵</h2><p><strong>Sentinel模式</strong>  主从模式的升级,主从可以切换，故障可以转移<br>Redis提供了哨兵的命令，<strong>哨兵是一个独立的进程</strong>，独立运行。</p><ol><li><p>原理:<br>是哨兵通过发送命令，等待Redis服务器响应，从而监控运行的多个Redis实例。<br>当哨兵监测到master宕机，会自动将slave切换成master，然后通过发布订阅模式通知其他的从服务器，修改配置文件，让它们切换主机。<br><img src="/2020/05/13/redis-3-%E6%8C%81%E4%B9%85%E5%8C%96-%E9%9B%86%E7%BE%A4%E6%A8%A1%E5%BC%8F/2.png" alt="2"><br>Spring进行配置RedisTemplate里面有用</p></li><li><p>故障迁移<br>由哨兵节点处理,不同于集群节点的从节点自己处理<br>主观下线:        一个哨兵主观的认为主服务器不可用,系统并不会马上进行failover过程<br>客观下线:        经过个哨兵投票认为不可用,投票的结果由一个哨兵发起，进行failover操作<br>先leader选举:客观下线时发起选举,优先级排序,相同的选迁移量offset大的<br>设置为主节点–&gt;设置从节点为新的主节点的复制—&gt;将旧的主节点变为新的主节点的复制 </p></li><li><p>哨兵们是怎么感知整个系统中的所有节点(主节点/从节点/哨兵节点)的<br> 1.首先主节点的信息是配置在哨兵(Sentinel)的配置文件中<br> 2.哨兵节点会和配置的主节点建立起两条连接命令连接和订阅连接<br> 3.哨兵会通过命令连接每10s发送一次INFO命令，通过INFO命令，主节点会返回自己的run_id和自己的从节点信息<br> 4.哨兵会对这些从节点也建立两条连接命令连接和订阅连接<br> 5.哨兵通过命令连接向从节点发送INFO命令，获取到他的一些信息 run_id/role/从服务器的复制偏移量 offset等<br> 6.因为哨兵对与集群中的其他节点(主从节点)当前都有两条连接，命令连接和订阅连接</p><pre><code> a. 通过命令连接向服务器的_sentinel:hello频道发送一条消息，内容包括自己的ip端口、run_id、配置纪元(后续投票的时候会用到)等 b. 通过订阅连接对服务器的_sentinel:hello频道做了监听，所以所有的向该频道发送的哨兵的消息都能被接受到 c. 解析监听到的消息，进行分析提取，就可以知道还有那些别的哨兵服务节点也在监听这些主从节点了，更新结构体将这些哨兵节点记录下来 d. 向观察到的其他的哨兵节点建立命令连接----没有订阅连接</code></pre></li></ol><p>优点:同主从<br>缺点:仍是扩容</p><h2 id="集群"><a href="#集群" class="headerlink" title="集群"></a>集群</h2><p><img src="/2020/05/13/redis-3-%E6%8C%81%E4%B9%85%E5%8C%96-%E9%9B%86%E7%BE%A4%E6%A8%A1%E5%BC%8F/3.png" alt="3"><br>Redis服务器节点，两两都相连，只要客户端连接到其中一台Redis服务器就可以对其他Redis服务器进行读写操作<br><strong>解决单机Redis容量有限的问题</strong>，将Redis的数据根据一定的规则分配到多台机器。<br>根据官方推荐 集群部署至少要3台以上的master节点就需要六个Redis实例(三主三从)</p><ol><li>数据分片<br>Redis集群有16384个哈希槽，Redis会根据节点数量大致均等的将哈希槽映射到不同的节点。<br>当需要在Redis集群中存储一个key-value时，Redis先对key使用CRC16算法算出一个结果，然后把结果对16383求余数，这样每个key都会对应一个编号在0-16383之间的哈希槽（CRC16(key) &amp; 16383）<br>当客户端向节点发送与数据库键有关的命令时，接收命令的节点会计算出命令要处理的数据库键属于哪个槽(去中心化)，并检查这个槽是否指派给了自己<br>1、如果键所在的槽正好就指派给了当前节点，那么节点直接执行这个命令<br>2、如果键所在的槽并没有指派给当前节点，那么节点会向客户端返回一个MOVED错误，指引客户端转向至正确的节点，并再次发送之前想要执行的命令</li></ol><p><strong>内部也需配置主从，并且内部也是采用哨兵模式:<br>如果有半数节点发现某个异常节点，就把状态改为下线，若果是主节点，则从节点自动向集群广播投票,顶替为主节点，使用老的主节点的槽并向集群通知自己的槽指派,当原先的主节点上线后，则会变为从节点。</strong></p><ol start="2"><li>特点:</li></ol><ul><li> 多个redis节点网络互联，数据共享,节点之间使用轻量协议通信 减少带宽占用 性能很高</li><li> 所有的节点都是一主一从（也可以是一主多从），其中从不提供服务，仅作为备用</li><li>不支持同时处理多个key（如MSET/MGET），因为redis需要把key均匀分布在各个节点上，</li><li>并发量很高的情况下同时创建key-value会降低性能并导致不可预测的行为</li><li> 支持在线增加、删除节点</li><li> 客户端可以连接任何一个主节点进行读写</li><li>自动实现负载均衡与高可用，自动实现failover并且支持动态扩展。</li></ul><p><strong>如果集群中的master没有slave节点，则master挂掉后整个集群就会进入fail状态，因为集群的slot映射不完整。如果集群超过半数以上的master挂掉，无论是否有slave，集群都会进入fail状态</strong></p>]]></content>
-    
-    
-      
-      
-    <summary type="html">&lt;h1 id=&quot;一-持久化&quot;&gt;&lt;a href=&quot;#一-持久化&quot; class=&quot;headerlink&quot; title=&quot;一.持久化&quot;&gt;&lt;/a&gt;一.持久化&lt;/h1&gt;&lt;p&gt;Redis的所有数据都是保存在内存中，redis崩掉的话，会丢失。Redis持久化就是把数据保存到磁盘上（可永久保存</summary>
       
     
     
